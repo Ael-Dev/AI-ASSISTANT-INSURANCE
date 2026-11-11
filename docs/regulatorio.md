@@ -1,4 +1,4 @@
-# Entregable 7 — Marco Regulatorio
+# Entregable 7: Marco Regulatorio
 
 ## Alcance
 
@@ -38,7 +38,7 @@ Funciones aplicadas en el diseño:
 
 ## Regulación de protección de datos
 
-### GDPR (Reglamento General de Protección de Datos — UE)
+### GDPR (Reglamento General de Protección de Datos: UE)
 
 Principios aplicados al diseño, aunque el prototipo usa datos sintéticos:
 - **Minimización**: el sistema solicita solo los datos necesarios
@@ -57,7 +57,7 @@ Aplicable si el sistema se desplegara en Perú:
 
 ## Regulación del sector seguros
 
-### SBS (Superintendencia de Banca, Seguros y AFP — Perú)
+### SBS (Superintendencia de Banca, Seguros y AFP: Perú)
 
 Aspectos relevantes para un sistema como este en producción:
 - Las respuestas del asistente no pueden constituir asesoría de seguros sin licencia
@@ -73,7 +73,7 @@ Aspectos relevantes para un sistema como este en producción:
 | Requisito regulatorio | Cómo se aborda en el prototipo |
 |---|---|
 | Supervisión humana | Human-in-the-loop para casos de alta incertidumbre |
-| Trazabilidad de decisiones | LangSmith + logs estructurados |
+| Trazabilidad de decisiones | logs estructurados locales + logs estructurados |
 | No-decisiones contractuales | Disclaimers en respuestas; scope limitado a orientación |
 | Protección de PII | Presidio + datos sintéticos en el prototipo |
 | Consentimiento para tickets | Confirmación explícita obligatoria antes de `create_ticket` |
@@ -85,6 +85,6 @@ Aspectos relevantes para un sistema como este en producción:
 
 - [EU AI Act](https://artificialintelligenceact.eu/)
 - [NIST AI RMF 1.0](https://airc.nist.gov/RMF)
-- [Ley 29733 — Perú](https://www.leyes.congreso.gob.pe/Documentos/Leyes/29733.pdf)
-- [SBS — Circular de Seguros](https://www.sbs.gob.pe/regulacion/seguros)
+- [Ley 29733. Perú](https://www.leyes.congreso.gob.pe/Documentos/Leyes/29733.pdf)
+- [SBS. Circular de Seguros](https://www.sbs.gob.pe/regulacion/seguros)
 - [OWASP Top 10 LLM 2025](https://owasp.org/www-project-top-10-for-large-language-model-applications/)

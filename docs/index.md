@@ -1,4 +1,4 @@
-# AI Assistant Insurance — Documentación
+# AI Assistant Insurance: Documentación
 
 Bienvenido a la documentación del proyecto **AI Assistant Insurance**, un asistente inteligente para el sector seguros construido sobre arquitectura **Agentic RAG** con LangChain y LangGraph.
 

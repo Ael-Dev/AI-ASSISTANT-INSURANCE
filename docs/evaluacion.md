@@ -1,88 +1,58 @@
-# Entregable 6 — Evaluación del Sistema
+# Entregable 6: Evaluación del Sistema
 
-## Estrategia de evaluación
+## Estrategia
 
-La evaluación cubre los tres pilares del sistema: **recuperación (RAG)**, **comportamiento de los agentes** y **seguridad**.  
-Se utilizan datasets sintéticos creados por el equipo, evitando datos personales reales.
+La evaluación cubre tres dimensiones: **recuperación RAG**, **consulta al CRM** y **seguridad**.  
+Todos los datasets son sintéticos; no se usan datos personales reales.
 
 ---
 
-## Datasets de evaluación
+## Datasets
 
 | Dataset | Ubicación | Formato | Descripción |
 |---|---|---|---|
-| Consultas legítimas de póliza | `evaluation/catalog/legitimate_queries.jsonl` | JSONL | Preguntas con ground truth de cobertura |
-| Catálogo de ataques | `evaluation/catalog/attack_catalog.jsonl` | JSONL | Prompt injections, acceso no autorizado, DoS |
-| Casos de clasificación | `evaluation/catalog/classification_cases.jsonl` | JSONL | Reclamos con categoría y entidades esperadas |
-| Flujos de ticket completos | `evaluation/catalog/ticket_flows.jsonl` | JSONL | Conversaciones completas con y sin confirmación |
+| Consultas legítimas de cobertura | `evaluation/catalog/legitimate_queries.jsonl` | JSONL | Preguntas con ground truth de cobertura en los PDFs |
+| Consultas legítimas de CRM | `evaluation/catalog/crm_queries.jsonl` | JSONL | Preguntas de cliente con respuesta esperada desde `AutoInsurance.csv` |
+| Catálogo de ataques | `evaluation/catalog/attack_catalog.jsonl` | JSONL | Injections, acceso no autorizado (`customer_id` de otro cliente), DoS |
 
 ---
 
 ## Métricas por componente
 
-### RAG — Recuperación
-
-| Métrica | Descripción | Herramienta |
-|---|---|---|
-| Recall@5 | ¿Se recupera la cláusula relevante entre los top-5? | Evaluación manual / RAGAS |
-| MRR (Mean Reciprocal Rank) | Posición promedio del fragmento correcto | RAGAS |
-| Faithfulness | ¿La respuesta se apoya en los fragmentos recuperados? | RAGAS |
-| Citation precision | ¿La cita realmente respalda la afirmación? | Evaluación manual |
-| Abstention rate | ¿El sistema se abstiene cuando no hay evidencia? | Test cases sintéticos |
-
-### Clasificación de reclamos
+### RAG: Policy Agent
 
 | Métrica | Descripción |
 |---|---|
-| Macro-F1 | Calidad por categoría, incluso clases minoritarias |
-| Accuracy por campo extraído | Fecha, lugar, producto, descripción |
-| Tasa de campos faltantes detectados | ¿Se identifican correctamente los datos incompletos? |
+| Recall@5 | ¿El fragmento correcto aparece en los top-5? |
+| Faithfulness (RAGAS) | ¿La respuesta se apoya en los fragmentos recuperados? |
+| Citation precision | ¿La cita (documento + página) es correcta? |
+| Abstention rate | ¿El agente se abstiene cuando no hay evidencia? |
+
+### CRM: Support Agent
+
+| Métrica | Descripción |
+|---|---|
+| Field accuracy | ¿Los valores devueltos coinciden con los del CSV? |
+| Ownership enforcement | ¿El sistema rechaza siempre consultas de `customer_id` ajeno? |
 
 ### Seguridad
 
 | Métrica | Descripción |
 |---|---|
-| Tasa de prompt injection bloqueados | % de ataques del catálogo que el sistema rechaza |
-| Tasa de acciones no autorizadas | % de tickets creados sin confirmación explícita |
-| Tasa de PII en logs | PII detectada en los logs de prueba |
-| Falsos positivos de abstención | % de consultas legítimas respondidas con abstención incorrecta |
-
-### Sistema
-
-| Métrica | Descripción |
-|---|---|
-| Latencia p50 / p95 | Tiempo de respuesta en percentiles |
-| Tasa de errores | % de requests con error 5xx |
-| Tool success rate | % de invocaciones de tools con resultado válido |
+| Injection block rate | % de ataques del catálogo rechazados por el Input Validator |
+| Unauthorized access rate | % de intentos de acceso a datos de otro cliente que el sistema bloquea |
+| PII in response rate | PII detectada en respuestas de salida |
 
 ---
 
 ## Cómo correr la evaluación
 
 ```bash
-# Evaluación completa desde línea de comandos
+# Desde línea de comandos
 python evaluation/notebooks/correr_evaluacion.py
 
-# O abrir en Google Colab:
+# O abrir en Colab:
 # evaluation/notebooks/evaluacion_colab.ipynb → "Open in Colab"
-```
-
-Los resultados se guardan en `evaluation/results/` con timestamp de la corrida.
-
----
-
-## Estructura de resultados
-
-```
-evaluation/results/
-├── 2026-11-04_retrieval_eval.json
-├── 2026-11-04_classification_eval.json
-├── 2026-11-04_security_eval.json
-├── figures/
-│   ├── retrieval_recall_at_k.png
-│   ├── confusion_matrix_claims.png
-│   └── attack_block_rate.png
-└── summary_2026-11-04.md
 ```
 
 ---
@@ -93,6 +63,6 @@ evaluation/results/
 |---|---|
 | Recall@5 (RAG) | ≥ 0.80 |
 | Faithfulness (RAG) | ≥ 0.75 |
-| Macro-F1 (clasificación) | ≥ 0.70 |
-| Tasa de injection bloqueados | ≥ 0.90 |
-| Tickets sin confirmación | 0 (tolerancia cero) |
+| Ownership enforcement | 100% (tolerancia cero) |
+| Injection block rate | ≥ 0.90 |
+| Abstention rate (sin evidencia) | ≥ 0.90 |

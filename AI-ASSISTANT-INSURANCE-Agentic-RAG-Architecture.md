@@ -1,547 +1,420 @@
 # AI-ASSISTANT-INSURANCE
-## Arquitectura de Agentic RAG multiagente para un asistente de reclamos de seguros
+## Arquitectura Agentic RAG: Asistente de Soporte para Seguros de Autos
 
-**Tipo de proyecto:** simulación funcional con datos sintéticos  
-**Enfoque:** AI Engineering · Agentic RAG · Multi-Agent Systems · MCP · Tool Calling · Memory  
-**Objetivo:** construir un asistente que clasifique reclamos, responda consultas sobre pólizas y registre tickets de atención.
+**Tipo de proyecto:** prototipo académico con datos sintéticos  
+**Enfoque:** AI Engineering · Agentic RAG · Tool Calling · Memory · AI Security  
+**Objetivo:** asistente que responde consultas de clientes sobre su póliza de auto, combinando recuperación de documentos (RAG) y consulta en tiempo real del CRM simulado (Tool Calling sobre SQLite).
 
 ---
 
 ## 1. Objetivo y alcance
 
-El sistema simula el proceso inicial de atención de reclamos de una aseguradora. El usuario puede describir un incidente, preguntar qué cubre su póliza y solicitar que se registre un reclamo.
+El sistema simula el soporte de primer nivel de una aseguradora de autos.  
+Un usuario puede identificarse como cliente (ej. `BU79786`) y consultar:
 
-El asistente debe:
+- Qué cubre su póliza y qué está excluido
+- Su estado de quejas abiertas (`Number of Open Complaints`)
+- Detalles de su cobertura, tipo de vehículo y monto de reclamos
+- Procedimientos para reportar un siniestro
 
-1. Identificar la intención del usuario y recopilar los datos mínimos.
-2. Clasificar el reclamo y extraer entidades relevantes.
-3. Consultar documentos de póliza y procedimientos mediante RAG.
-4. Explicar coberturas, exclusiones y requisitos citando la fuente.
-5. Crear un ticket únicamente cuando exista consentimiento y los datos mínimos estén completos.
-6. Devolver un identificador y permitir consultar el estado del ticket.
+El agente decide qué fuente consultar según la intención:
 
-**Límite importante:** el prototipo no determina legalmente la cobertura, no aprueba ni rechaza indemnizaciones, no calcula pagos definitivos y no sustituye la evaluación de un ajustador. Sus respuestas son orientativas y deben escalar los casos ambiguos o sensibles.
-
----
-
-## 2. Arquitectura propuesta
-
-Se recomienda un **orquestador central con agentes especializados**, no un conjunto de agentes autónomos que conversan sin control. El orquestador enruta cada solicitud, conserva el estado del flujo y valida las acciones antes de ejecutarlas.
-
-### Responsabilidades de los agentes
-
-| Componente | Responsabilidad | ¿Por qué es un agente? |
+| Intención | Fuente | Tool |
 |---|---|---|
-| Orchestrator Agent | Detecta intención, decide qué agente invocar y coordina el flujo. | La solicitud puede necesitar una o varias capacidades en distinto orden. |
-| Claims Classifier Agent | Clasifica el siniestro, extrae datos y detecta información faltante. | Requiere interpretar texto libre y producir una salida estructurada. |
-| Policy Assistant Agent | Responde preguntas sobre cobertura, exclusiones y requisitos usando RAG. | Debe buscar evidencia, comparar fragmentos y responder con citas. |
-| Ticket Management Agent | Valida los datos, solicita confirmación y crea o consulta tickets. | Ejecuta acciones sobre el sistema simulado y controla sus precondiciones. |
-| Human Escalation (regla/cola) | Deriva casos complejos, contradictorios o de alto impacto. | No necesita ser un LLM: una política determinista puede gestionar la derivación. |
+| Datos del cliente / póliza específica | `AutoInsurance.csv` → SQLite | `crm_tool` |
+| Coberturas, exclusiones, procedimientos | 3 PDFs operativos → ChromaDB | `rag_tool` |
+| Ambas | Consulta ambas y sintetiza | Ambas tools |
 
-**Diseño deliberado:** la clasificación y la creación de tickets no necesitan RAG por defecto. Se conectan al RAG de pólizas solo cuando necesitan interpretar requisitos o procedimientos documentados. Esto evita recuperar documentos innecesarios y reduce errores.
+**Límite:** el asistente es orientativo. No aprueba reclamos, no modifica pólizas, no toma decisiones contractuales.
 
 ---
 
-## 3. Diagrama general de arquitectura
+## 2. Agentes y responsabilidades
+
+| Agente | Responsabilidad | Tools que usa |
+|---|---|---|
+| **Orchestrator** | Detecta intención, enruta al agente correcto, mantiene estado de sesión | `get_session_state` |
+| **Support Agent** | Consulta datos del cliente en el CRM simulado y responde con contexto real | `crm_tool` |
+| **Policy Agent** | Responde preguntas sobre coberturas y procedimientos con citas de los PDFs | `rag_tool` |
+
+El orquestador puede invocar ambos agentes en secuencia si la consulta requiere combinar datos del cliente con información de cobertura.
+
+---
+
+## 3. Diagrama A: Arquitectura funcional (sin controles de seguridad)
+
+Vista limpia del flujo de datos y componentes. Para entender cómo funciona el sistema.
 
 ```mermaid
 flowchart TB
-    U["Usuario / Asegurado"] --> UI["Chat UI / API"]
-    UI --> ORCH["Orchestrator Agent"]
-    ORCH <--> STATE[("Conversation State<br/>Redis o SQLite")]
+    U(["👤 Usuario / Cliente\n(ej: BU79786)"])
+    UI["Chat UI / CLI"]
+    ORCH["Orchestrator Agent\n(LangGraph)"]
+    STATE[("Session State\nSQLite")]
+    ROUTE{"¿Intención?"}
 
-    ORCH --> ROUTE{"Intención detectada"}
-    ROUTE -->|"Reportar incidente"| CLASS["Claims Classifier Agent"]
-    ROUTE -->|"Consultar póliza"| POLICY["Policy Assistant Agent"]
-    ROUTE -->|"Registrar / consultar ticket"| TICKET["Ticket Management Agent"]
-    ROUTE -->|"Consulta combinada"| CLASS
-    CLASS --> POLICY
-    POLICY --> TICKET
+    SUPP["Support Agent"]
+    POL["Policy Agent"]
 
-    CLASS --> CT["Classification Tools"]
-    CT --> SYNTH[("Synthetic Claims DB")]
+    CRM_T["crm_tool\nTool Calling → SQL"]
+    RAG_T["rag_tool\nTool Calling → ChromaDB"]
 
-    POLICY --> RETR["Policy Retrieval Pipeline"]
-    RETR --> VDB[("Vector DB<br/>ChromaDB")]
-    RETR --> DOCS[("Policy Documents<br/>PDF / DOCX / Markdown")]
-    RETR --> RERANK["Reranker + Evidence Filter"]
-    RERANK --> POLICY
+    SQLITE[("CRM Simulado\nAutoInsurance.csv\n→ SQLite")]
+    CHROMA[("Vector Store\nChromaDB")]
+    PDFS[("PDFs Operativos\n3 documentos\nApex Shield Insurance")]
 
-    TICKET --> TT["Ticket Tools"]
-    TT --> TDB[("Tickets DB<br/>SQLite")]
-    TICKET --> CONSENT{"User confirmation?"}
-    CONSENT -->|"Yes"| CREATE["Create Ticket"]
-    CONSENT -->|"No"| DRAFT["Keep as draft"]
+    MEM[("Memory\nHistorial por session_id")]
+    RESP["Response Composer"]
 
-    ORCH <--> MEM[("Memory Store<br/>Session + User Preferences")]
-    ORCH --> GUARD["Guardrails / PII / Policy Checks"]
-    CLASS --> GUARD
-    POLICY --> GUARD
-    TICKET --> GUARD
+    U --> UI
+    UI --> ORCH
+    ORCH <--> STATE
+    ORCH <--> MEM
+    ORCH --> ROUTE
 
-    GUARD --> OBS["Logs · Traces · Evals"]
-    ORCH --> RESP["Response Composer"]
+    ROUTE -->|"Consulta cliente / póliza"| SUPP
+    ROUTE -->|"Consulta cobertura / procedimiento"| POL
+    ROUTE -->|"Consulta combinada"| SUPP & POL
+
+    SUPP --> CRM_T
+    CRM_T --> SQLITE
+
+    POL --> RAG_T
+    RAG_T --> CHROMA
+    CHROMA -.->|"indexado"| PDFS
+
+    SUPP --> RESP
+    POL --> RESP
     RESP --> UI
-    TICKET --> ESC{"Needs human review?"}
-    ESC -->|"Yes"| HUMAN["Simulated Human Review Queue"]
-    ESC -->|"No"| RESP
+    UI --> U
 ```
 
 ---
 
-## 4. Flujo agentic principal
+## 4. Diagrama B: Arquitectura con puntos de control de seguridad
+
+Misma arquitectura funcional con los controles de seguridad identificados.  
+Los nodos en **rojo** son puntos de riesgo o controles obligatorios.
+
+```mermaid
+flowchart TB
+    U(["👤 Usuario / Cliente"])
+    UI["Chat UI / CLI"]
+
+    IV["🔴 Input Validator\nanti-injection · límite tokens\nverificación customer_id"]
+
+    ORCH["Orchestrator Agent\n(LangGraph)"]
+    STATE[("Session State\nSQLite")]
+    ROUTE{"¿Intención?"}
+
+    SUPP["Support Agent"]
+    POL["Policy Agent"]
+
+    CRM_T["crm_tool\nTool Calling → SQL"]
+    RAG_T["rag_tool\nTool Calling → ChromaDB"]
+
+    OWN["🔴 Ownership Check\nvalidar customer_id\nde sesión vs BD"]
+
+    CTX["🔴 Context Injection Risk\nfragmentos RAG tratados\ncomo datos, no instrucciones"]
+
+    SQLITE[("CRM Simulado\nAutoInsurance.csv → SQLite")]
+    CHROMA[("Vector Store\nChromaDB")]
+    PDFS[("PDFs Operativos\n3 docs Apex Shield")]
+
+    MEM[("Memory\nHistorial por session_id")]
+
+    OF["🔴 Output Filter\nDLP · enmascarar PII\nno revelar datos de otros clientes"]
+
+    LOG["🔴 Logs + Trazas\nlogs estructurados locales · sin PII\nsin API keys"]
+
+    RESP["Response Composer"]
+    HIT["🔴 Human-in-the-loop\nescalamiento si\nbaja confianza / caso ambiguo"]
+
+    U --> UI
+    UI --> IV
+    IV -->|"✅ pasa validación"| ORCH
+    IV -->|"❌ rechazada"| UI
+
+    ORCH <--> STATE
+    ORCH <--> MEM
+    ORCH --> ROUTE
+
+    ROUTE -->|"Consulta cliente"| SUPP
+    ROUTE -->|"Consulta cobertura"| POL
+    ROUTE -->|"Combinada"| SUPP & POL
+
+    SUPP --> OWN
+    OWN -->|"✅ autorizado"| CRM_T
+    OWN -->|"❌ denegado"| RESP
+    CRM_T --> SQLITE
+
+    POL --> CTX
+    CTX --> RAG_T
+    RAG_T --> CHROMA
+    CHROMA -.->|"indexado"| PDFS
+
+    SUPP --> OF
+    POL --> OF
+    OF --> RESP
+    RESP --> UI
+    UI --> U
+
+    OF --> LOG
+    ORCH --> LOG
+    ORCH --> HIT
+
+    style IV fill:#c0392b,color:#fff,stroke:#922b21
+    style OWN fill:#c0392b,color:#fff,stroke:#922b21
+    style CTX fill:#c0392b,color:#fff,stroke:#922b21
+    style OF fill:#c0392b,color:#fff,stroke:#922b21
+    style LOG fill:#c0392b,color:#fff,stroke:#922b21
+    style HIT fill:#c0392b,color:#fff,stroke:#922b21
+```
+
+### Puntos de control identificados
+
+| Nodo (rojo) | Riesgo que mitiga | Ubicación en el código |
+|---|---|---|
+| **Input Validator** | Prompt injection, DoS por tokens, customer_id inválido | `src/security/validators/input_validator.py` |
+| **Ownership Check** | Acceso no autorizado a datos de otro cliente | `src/tools/crm_tool.py` + validación backend |
+| **Context Injection Risk** | Prompt injection via fragmentos recuperados del RAG | `src/rag/retriever.py` + estructura de prompt |
+| **Output Filter / DLP** | PII en respuesta, datos de otros clientes, alucinaciones | `src/security/guardrails/output_filter.py` |
+| **Logs + Trazas** | PII en logs, exposición de API keys, falta de auditoría | `src/config/settings.py` + logs estructurados locales |
+| **Human-in-the-loop** | Decisiones automáticas en casos ambiguos o de alto impacto | `src/agents/orchestrator.py` (regla determinista) |
+
+---
+
+## 5. Flujo de conversación principal
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Usuario
-    participant UI as Chat UI
+    actor User as Cliente (BU79786)
+    participant UI as Chat
     participant O as Orchestrator
-    participant C as Claims Classifier
-    participant P as Policy Assistant
-    participant R as Policy RAG
-    participant T as Ticket Agent
-    participant DB as Tickets DB
+    participant S as Support Agent
+    participant P as Policy Agent
+    participant DB as SQLite (CRM)
+    participant V as ChromaDB (RAG)
 
-    User->>UI: Describe accidente y solicita ayuda
-    UI->>O: Mensaje + session_id
-    O->>O: Detectar intención y revisar estado
-    O->>C: Clasificar y extraer entidades
-    C-->>O: Tipo, confianza, datos y faltantes
+    User->>UI: "¿Cuántas quejas abiertas tengo?"
+    UI->>O: mensaje + session_id
+    O->>O: detectar intención → consulta CRM
+    O->>S: consultar datos del cliente BU79786
+    S->>DB: SELECT * FROM customers WHERE customer_id = 'BU79786'
+    DB-->>S: {policy, coverage, open_complaints, ...}
+    S-->>O: datos estructurados del cliente
+    O-->>UI: "Tienes 0 quejas abiertas. Tu póliza es Corporate L3..."
+    UI-->>User: respuesta con datos reales del CRM
 
-    alt Faltan datos esenciales
-        O-->>UI: Preguntar datos faltantes
-        UI-->>User: Solicitud de aclaración
-    else Clasificación suficiente
-        O->>P: Consultar cobertura y requisitos
-        P->>R: Recuperar evidencia de la póliza
-        R-->>P: Fragmentos + metadatos + citas
-        P-->>O: Respuesta fundamentada + incertidumbre
-        O-->>UI: Explicar cobertura orientativa y requisitos
-        UI-->>User: Mostrar respuesta y pedir confirmación de registro
-        User->>UI: Confirma registro
-        UI->>O: Confirmación explícita
-        O->>T: Crear ticket con datos validados
-        T->>DB: Insertar ticket
-        DB-->>T: ticket_id + estado
-        T-->>O: Confirmación de creación
-        O-->>UI: Código y resumen del ticket
-        UI-->>User: Mostrar seguimiento
-    end
+    User->>UI: "¿Qué cubre mi póliza en caso de robo?"
+    UI->>O: mensaje + session_id
+    O->>O: detectar intención → consulta RAG
+    O->>P: consultar cobertura por robo
+    P->>V: búsqueda híbrida: "cobertura robo auto"
+    V-->>P: fragmentos + fuente + página
+    P-->>O: respuesta con cita [Manual, pág. 12]
+    O-->>UI: respuesta con evidencia citada
+    UI-->>User: "Según el Manual Operativo (pág. 12)..."
 ```
 
 ---
 
-## 5. RAG: fuentes de datos simuladas
+## 6. Fuentes de datos
 
-### 5.1 Policy RAG — RAG principal
+### 6.1 Datos estructurados: CRM simulado
 
-**Propósito:** responder qué cubre una póliza, qué excluye, qué documentos solicita y cuáles son los pasos para reportar un siniestro.
+**Archivo:** `data/synthetic/structured/AutoInsurance.csv` (Kaggle. Auto Insurance Dataset)  
+**Cargado en:** SQLite al iniciar el sistema (`scripts/index_documents.py`)
 
-**Documentos sintéticos que debes crear:**
+Columnas clave que usa el sistema:
 
-| Fuente | Contenido de ejemplo | Formato |
-|---|---|---|
-| Póliza de auto | Cobertura por choque, robo, incendio, deducible, exclusiones y límites. | PDF / DOCX |
-| Póliza de hogar | Daños por agua, incendio, robo, eventos excluidos y límites. | PDF / DOCX |
-| Póliza de salud (opcional) | Beneficios, copagos, carencias, exclusiones y autorizaciones. | PDF / DOCX |
-| Manual de reclamos | Pasos para reportar, plazos simulados y canales de atención. | Markdown / PDF |
-| Matriz de requisitos | Evidencias requeridas según tipo de siniestro. | CSV / Markdown |
-| Glosario | Definiciones de deducible, prima, cobertura, exclusión y siniestro. | Markdown |
+| Campo | Uso |
+|---|---|
+| `Customer` | ID para identificar al cliente en sesión |
+| `Policy Type` / `Policy` | Tipo y nivel de póliza (Corporate L3, Personal L3...) |
+| `Coverage` | Basic / Extended / Premium |
+| `Number of Open Complaints` | Estado de quejas activas |
+| `Total Claim Amount` | Monto acumulado de reclamos |
+| `Vehicle Class` / `Vehicle Size` | Tipo de vehículo asegurado |
+| `Customer Lifetime Value` | Valor del cliente |
+| `Monthly Premium Auto` | Prima mensual |
 
-**Metadatos recomendados por fragmento:**
+### 6.2 Datos no estructurados: RAG
 
-```json
-{
-  "document_id": "AUTO-001",
-  "document_type": "policy",
-  "product": "auto",
-  "policy_version": "2026.1",
-  "section": "Exclusiones",
-  "page": 8,
-  "jurisdiction": "PE",
-  "effective_from": "2026-01-01",
-  "source": "poliza_auto_demo.pdf"
-}
+**Ubicación:** `data/raw/`  
+**Indexados en:** ChromaDB (`data/vectorstore/`)
+
+| Documento | Contenido |
+|---|---|
+| `Manual Completo de Manejo de Reclamaciones y FAQ...pdf` | FAQs, proceso de reclamos, plazos |
+| `Manual Operativo de Políticas y Procedimientos...pdf` | Coberturas, exclusiones, condiciones |
+| `Tabla de Costos y Procedimientos Operativos...pdf` | Deducibles, tarifas, requisitos por tipo de siniestro |
+
+**Pipeline de ingestión:**
+
+```
+PDF (data/raw/)
+  → PyPDF loader
+  → Chunking por secciones (500–800 tokens, 100 de overlap)
+  → Metadata: {source, page, section}
+  → Embedding (BGE-M3 o text-embedding-3-small)
+  → ChromaDB (data/vectorstore/)
 ```
 
-Los metadatos permiten filtrar por producto, versión y vigencia antes o durante la recuperación. En un sistema real, la póliza aplicable también debe validarse contra el contrato individual del asegurado; no basta con recuperar una póliza genérica.
+**Retrieval híbrido:**
 
-### 5.2 ¿Se necesita un segundo RAG?
-
-No es obligatorio para el MVP. Puedes empezar con un único índice vectorial de documentos contractuales y operativos, separado lógicamente mediante metadatos.
-
-Si el proyecto crece, conviene separar:
-
-- **Policy RAG:** condiciones contractuales, coberturas y exclusiones.
-- **Claims Procedure RAG:** procedimientos, formularios y evidencias necesarias.
-
-La separación ayuda a controlar permisos, versionado, evaluación y trazabilidad. No crees un RAG independiente para cada agente si todos consultan el mismo conocimiento.
-
-### 5.3 Pipeline de ingestión y recuperación
-
-```mermaid
-flowchart LR
-    A["PDF / DOCX / MD / CSV"] --> B["Document Loader"]
-    B --> C["Text Extraction + OCR si aplica"]
-    C --> D["Cleaning + Normalization"]
-    D --> E["Chunking por secciones"]
-    E --> F["Metadata Enrichment"]
-    F --> G["Embedding Model"]
-    G --> H[("ChromaDB")]
-    Q["User Query"] --> I["Query Understanding"]
-    I --> J["Metadata Filter"]
-    J --> H
-    H --> K["Top-K Retrieval"]
-    K --> L["Reranker"]
-    L --> M["Evidence / Relevance Check"]
-    M --> N["LLM Answer + Citations"]
 ```
-
-**Configuración inicial sugerida:**
-
-- Chunking: 500–800 tokens, con 80–120 tokens de solapamiento como punto de partida.
-- Respetar encabezados, numeración de cláusulas y tablas; no dividir una exclusión de su contexto.
-- Embeddings: modelo multilingüe, por ejemplo BGE-M3 o Qwen3 Embedding.
-- Vector DB: ChromaDB para el prototipo local.
-- Recuperación: top-k inicial de 5–8 fragmentos, ajustado mediante evaluación.
-- Reranking: opcional al inicio; incorporar un reranker multilingüe si la recuperación trae fragmentos poco relevantes.
-- Respuesta: incluir nombre del documento, sección y página cuando estén disponibles.
-- Abstención: si no hay evidencia suficiente, indicarlo y derivar la consulta.
-
-Los valores son parámetros iniciales de experimentación, no cifras universalmente óptimas.
+Consulta del usuario
+  → EnsembleRetriever
+      ├── Dense search (ChromaDB: semántico)
+      └── BM25 (keyword: exacto)
+  → Top-K fragmentos
+  → Prompt con fragmentos como contexto [DATOS, no instrucciones]
+  → LLM genera respuesta con cita de fuente + página
+```
 
 ---
 
-## 6. Datos simulados necesarios
+## 7. Tools del sistema
 
-No uses datos personales reales. Genera registros ficticios y marca claramente el entorno como `demo`.
-
-### 6.1 Base de pólizas
-
-Archivo sugerido: `data/synthetic/policies.json`
-
-```json
-[
-  {
-    "policy_id": "POL-AUTO-0001",
-    "customer_id": "CUS-0001",
-    "product": "auto",
-    "plan": "estandar",
-    "status": "active",
-    "effective_from": "2026-01-01",
-    "effective_to": "2026-12-31",
-    "vehicle": {
-      "make": "MarcaDemo",
-      "model": "ModeloX",
-      "year": 2022
-    },
-    "deductible": 500,
-    "currency": "PEN"
-  }
-]
-```
-
-### 6.2 Base de reclamos sintéticos
-
-Archivo sugerido: `data/synthetic/claims.json`
-
-```json
-[
-  {
-    "claim_id": "CLM-DEMO-0001",
-    "policy_id": "POL-AUTO-0001",
-    "incident_type": "collision",
-    "description": "Daño en la parte delantera por choque",
-    "incident_date": "2026-10-15",
-    "location": "Cusco",
-    "estimated_damage": 2500,
-    "status": "under_review"
-  }
-]
-```
-
-### 6.3 Base de tickets
-
-Archivo sugerido: `data/synthetic/tickets.json`
-
-```json
-[
-  {
-    "ticket_id": "TKT-DEMO-0001",
-    "customer_id": "CUS-0001",
-    "policy_id": "POL-AUTO-0001",
-    "claim_id": "CLM-DEMO-0001",
-    "category": "auto_collision",
-    "priority": "medium",
-    "status": "open",
-    "created_at": "2026-10-15T14:30:00-05:00",
-    "summary": "Reporte inicial de colisión"
-  }
-]
-```
-
-### 6.4 Catálogo de clasificación
-
-Archivo sugerido: `data/synthetic/claim_categories.json`
-
-Categorías iniciales:
-
-- `auto_collision`
-- `auto_theft`
-- `auto_glass_damage`
-- `home_fire`
-- `home_water_damage`
-- `home_theft`
-- `health_reimbursement` (si incluyes salud)
-- `other`
-- `uncertain`
-
-Cada categoría debe definir descripción, datos requeridos, prioridad inicial y reglas de escalamiento. La prioridad sugerida por el modelo debe validarse con reglas deterministas.
-
----
-
-## 7. Tools por agente
-
-Las tools son funciones concretas que el agente puede invocar. No todo debe resolverse con el LLM.
-
-| Agente | Tool | Función | Implementación simulada |
+| Tool | Agente que la usa | Qué hace | Implementación |
 |---|---|---|---|
-| Orchestrator | `detect_intent` | Detecta consulta de póliza, nuevo reclamo o seguimiento. | LLM + esquema estructurado |
-| Orchestrator | `get_session_state` | Recupera el paso actual del flujo. | SQLite / Redis |
-| Classifier | `classify_claim` | Devuelve categoría y confianza. | LLM con JSON Schema |
-| Classifier | `extract_claim_entities` | Extrae fecha, lugar, descripción, producto y evidencias. | LLM + validación Pydantic |
-| Classifier | `get_required_fields` | Consulta qué campos faltan por categoría. | Python + JSON |
-| Classifier | `validate_policy_id` | Verifica existencia y estado de la póliza simulada. | SQLite |
-| Policy Assistant | `search_policy_documents` | Recupera fragmentos relevantes. | ChromaDB |
-| Policy Assistant | `get_policy_metadata` | Obtiene producto, versión y vigencia. | SQLite / JSON |
-| Policy Assistant | `check_evidence_sufficiency` | Comprueba si hay evidencia suficiente para responder. | Reglas + evaluación LLM |
-| Ticket Agent | `create_ticket` | Crea un ticket después de validar y confirmar. | SQLite |
-| Ticket Agent | `get_ticket_status` | Consulta el estado por ID. | SQLite |
-| Ticket Agent | `update_ticket_status` | Cambia estado en entorno demo, con autorización. | SQLite + reglas |
-| Ticket Agent | `escalate_to_human` | Envía el caso a una cola simulada. | SQLite |
+| `crm_tool` | Support Agent | Consulta SQLite: datos del cliente por `customer_id` | `src/tools/crm_tool.py` |
+| `rag_tool` | Policy Agent | Busca en ChromaDB: fragmentos relevantes de los PDFs | `src/tools/rag_tool.py` |
+| `get_session_state` | Orchestrator | Recupera historial y estado de la sesión actual | `src/memory/session.py` |
 
-**Regla de seguridad:** el LLM propone argumentos; el backend valida tipos, permisos, existencia de póliza, campos obligatorios y consentimiento. El LLM nunca escribe directamente en la base de datos.
+**Regla de seguridad:** el LLM propone qué tool llamar y con qué argumentos. El backend valida customer_id, permisos y tipos antes de ejecutar. El LLM nunca accede directamente a la BD.
 
 ---
 
-## 8. ¿Se necesita MCP?
+## 8. Memoria
 
-**No es obligatorio para construir el MVP.** Puedes implementar las tools como funciones Python y conectarlas al framework de agentes.
-
-MCP resulta útil cuando quieres exponer las capacidades como herramientas estandarizadas, desacopladas del agente y reutilizables por distintos clientes o agentes.
-
-### MCP recomendado para una versión ampliada
-
-| Servidor MCP | Tools expuestas | Recursos |
+| Tipo | Qué guarda | Dónde |
 |---|---|---|
-| `policy-mcp` | `search_policy`, `get_policy_details`, `list_policy_versions` | Pólizas y manuales |
-| `claims-mcp` | `classify_claim`, `validate_claim_data`, `get_claim_requirements` | Catálogo de siniestros |
-| `ticket-mcp` | `create_ticket`, `get_ticket`, `list_tickets`, `escalate_ticket` | Tickets simulados |
-| `customer-mcp` (opcional) | `get_customer_demo`, `get_customer_policies` | Clientes ficticios |
+| Session memory | Mensajes recientes + intención + customer_id activo | SQLite (`session.py`) |
+| Workflow state | Paso actual del flujo (esperando dato, respuesta entregada) | SQLite |
 
-**Arquitectura de integración:** los agentes consumen tools MCP mediante un cliente MCP. Cada servidor MCP llama a servicios de dominio que aplican validaciones y acceden a SQLite/ChromaDB. MCP no reemplaza la lógica de negocio, la autorización ni la base de datos.
-
-Para un proyecto académico o portafolio, una buena progresión es:
-
-1. MVP: funciones Python tipadas.
-2. Segunda iteración: encapsular las tools de pólizas y tickets en servidores MCP.
-3. Prueba: demostrar que un agente o cliente distinto puede reutilizar el mismo servidor MCP.
-
-No implementes cuatro servidores MCP solo por añadir tecnología: empieza con uno de tickets o uno de pólizas y justifica la interoperabilidad.
+No se guarda PII sensible en la memoria. Para los datos del cliente siempre se consulta el CRM (SQLite ← CSV), no la memoria de conversación.
 
 ---
 
-## 9. Memoria: qué guardar y qué no
+## 9. Guardrails y controles de seguridad
 
-Distingue entre **estado de conversación**, **memoria de usuario** y **datos transaccionales**. No deben mezclarse.
+Ver detalle en [`docs/controles.md`](docs/controles.md) y [`docs/modelo-de-amenazas.md`](docs/modelo-de-amenazas.md).
 
-| Tipo | Qué guarda | Persistencia | Ejemplo |
-|---|---|---|---|
-| Short-term / Session Memory | Mensajes recientes, intención, campos recopilados y paso del flujo. | Durante la sesión o TTL. | Falta fecha del accidente. |
-| Workflow State | Estado explícito de una solicitud en curso. | SQLite / Redis. | `awaiting_user_confirmation`. |
-| User Preference Memory (opcional) | Preferencias no sensibles y autorizadas. | SQLite con consentimiento. | Prefiere respuestas breves. |
-| Episodic Memory (opcional) | Resumen de interacciones anteriores relevantes. | Persistencia controlada y retención definida. | Ya proporcionó la descripción del incidente. |
-| Transactional Records | Pólizas, reclamos y tickets. | Base de datos relacional. | Ticket TKT-DEMO-0001. |
-
-**No guardar en memoria semántica/vectorial:** números completos de documentos de identidad, datos bancarios, información médica detallada, credenciales ni información sensible innecesaria.
-
-La memoria no es la fuente de verdad de una póliza ni del estado de un ticket. Para esos datos siempre consulta la base transaccional. En el MVP basta con `session_id` + estado de workflow en SQLite; la memoria de usuario de largo plazo es opcional.
+| Control | Dónde aplica | Qué protege |
+|---|---|---|
+| Input validation + límite tokens | Entrada del usuario | DoS, tokens excesivos |
+| Anti-prompt-injection | Entrada + fragmentos RAG en prompt | Manipulación del LLM |
+| Ownership check | `crm_tool` antes de consultar SQLite | Acceso a datos de otro cliente |
+| Output filter / DLP | Antes de entregar respuesta al usuario | PII, datos cruzados, alucinaciones |
+| Logs sin PII | logs estructurados locales + logs locales | Privacidad, auditoría |
+| Human-in-the-loop | Orchestrator (regla determinista) | Casos ambiguos o de alto impacto |
+| Abstención RAG | `rag_tool` / Policy Agent | Responder sin evidencia suficiente |
 
 ---
 
-## 10. Guardrails y controles
+## 10. Stack tecnológico
 
-1. **Identidad y autorización:** en demo, usar usuarios ficticios y validar que solo consulten sus registros.
-2. **Consentimiento:** no crear tickets hasta que el usuario confirme expresamente.
-3. **Validación de póliza:** comprobar estado, producto y vigencia con datos estructurados.
-4. **Grounding:** las respuestas sobre coberturas deben apoyarse en fragmentos recuperados y mostrar referencias.
-5. **No inventar coberturas:** si falta la cláusula o hay contradicción entre versiones, abstenerse y escalar.
-6. **Prompt injection:** tratar los documentos recuperados y mensajes del usuario como datos, no como instrucciones del sistema.
-7. **Minimización de datos:** solicitar solo lo necesario y enmascarar información personal en logs.
-8. **Acciones restringidas:** no aprobar/rechazar indemnizaciones ni modificar datos contractuales.
-9. **Trazabilidad:** registrar agente, tool, argumentos validados, resultado, fuentes y latencia; excluir secretos y PII.
-10. **Human-in-the-loop:** derivar casos de lesiones, fraude sospechado, versiones contradictorias, baja confianza o reclamos de alto impacto.
+| Capa | Tecnología |
+|---|---|
+| Orquestación de agentes | LangGraph |
+| Framework LLM | LangChain |
+| LLM | OpenAI GPT-4o-mini / compatible |
+| Embeddings | BGE-M3 o `text-embedding-3-small` |
+| Vector Store (RAG) | ChromaDB |
+| BD estructurada (CRM) | SQLite ← `AutoInsurance.csv` |
+| Retrieval híbrido | Dense + BM25 (EnsembleRetriever) |
+| Memoria de sesión | SQLite + LangChain |
+| Guardrails / PII | Presidio + validators propios |
+| Trazabilidad | logs estructurados locales |
+| Gestor de paquetes | uv |
 
 ---
 
-## 11. Estructura de proyecto sugerida
+## 11. Estructura del proyecto (real)
 
-```text
-ai-assistant-insurance/
-├── app/
-│   ├── api/
-│   │   └── routes.py
+```
+AI-ASSISTANT-INSURANCE/
+│
+├── src/
 │   ├── agents/
-│   │   ├── orchestrator.py
-│   │   ├── claims_classifier.py
-│   │   ├── policy_assistant.py
-│   │   └── ticket_manager.py
-│   ├── rag/
-│   │   ├── ingestion.py
-│   │   ├── chunking.py
-│   │   ├── embeddings.py
-│   │   ├── retrieval.py
-│   │   └── reranking.py
+│   │   ├── orchestrator.py        ← grafo LangGraph: detecta intención, enruta
+│   │   ├── support_agent.py       ← consulta CRM (crm_tool)
+│   │   └── policy_agent.py        ← consulta PDFs (rag_tool) + citas
 │   ├── tools/
-│   │   ├── claims_tools.py
-│   │   ├── policy_tools.py
-│   │   └── ticket_tools.py
+│   │   ├── crm_tool.py            ← SELECT sobre SQLite (AutoInsurance.csv)
+│   │   └── rag_tool.py            ← EnsembleRetriever sobre ChromaDB
+│   ├── rag/
+│   │   ├── ingest.py              ← carga PDFs → chunks → ChromaDB
+│   │   └── retriever.py           ← EnsembleRetriever: dense + BM25
 │   ├── memory/
-│   │   ├── session_store.py
-│   │   └── workflow_state.py
-│   ├── mcp_servers/
-│   │   ├── policy_server.py
-│   │   └── ticket_server.py
+│   │   └── session.py             ← historial por session_id (SQLite)
+│   ├── security/
+│   │   ├── guardrails/
+│   │   │   └── output_filter.py   ← DLP + filtro de PII en respuesta
+│   │   └── validators/
+│   │       └── input_validator.py ← anti-injection + ownership check
 │   ├── schemas/
-│   │   ├── claim.py
-│   │   ├── policy.py
-│   │   └── ticket.py
-│   ├── services/
-│   │   ├── policy_service.py
-│   │   └── ticket_service.py
-│   └── config.py
+│   │   ├── customer.py            ← Pydantic: campos de AutoInsurance.csv
+│   │   └── query.py               ← Pydantic: consulta entrante
+│   ├── prompts/
+│   │   └── system_prompts.py      ← templates con separación datos/instrucciones
+│   └── config/
+│       └── settings.py            ← variables de entorno centralizadas
+│
 ├── data/
-│   ├── documents/
-│   │   ├── policies/
-│   │   └── procedures/
-│   └── synthetic/
-│       ├── customers.json
-│       ├── policies.json
-│       ├── claims.json
-│       ├── tickets.json
-│       └── claim_categories.json
-├── vectorstore/
+│   ├── raw/                       ← 3 PDFs Apex Shield Insurance
+│   ├── synthetic/structured/
+│   │   └── AutoInsurance.csv      ← CRM simulado (Kaggle)
+│   └── vectorstore/               ← ChromaDB persistido
+│
+├── scripts/
+│   ├── index_documents.py         ← indexa PDFs + carga CSV en SQLite
+│   └── run_assistant.py           ← CLI interactivo
+│
+├── evaluation/                    ← catálogo, resultados, notebook Colab
+├── logs/attack_runs/              ← registros de corridas de seguridad
 ├── tests/
-│   ├── test_classification.py
-│   ├── test_retrieval.py
-│   ├── test_grounded_answers.py
-│   ├── test_ticket_tools.py
-│   └── test_guardrails.py
-├── evaluation/
-│   ├── retrieval_dataset.json
-│   ├── classification_dataset.json
-│   └── answer_quality_dataset.json
-├── .env.example
-├── docker-compose.yml
-├── requirements.txt
-└── README.md
+└── docs/                          ← 7 entregables académicos
 ```
 
-MCP es una carpeta opcional hasta la segunda iteración. No guardes archivos `.env`, claves API ni datos reales en el repositorio.
-
 ---
 
-## 12. Stack tecnológico sugerido
+## 12. Orden de implementación
 
-| Capa | Opción para el prototipo | Motivo |
+| Fase | Qué se construye | Resultado verificable |
 |---|---|---|
-| Lenguaje | Python | Ecosistema de AI Engineering. |
-| API | FastAPI | API ligera y validación de esquemas. |
-| Agent orchestration | LangGraph | Flujo explícito, estado, nodos y rutas condicionales. |
-| LLM | Modelo compatible con tool calling y salida estructurada | Clasificación, extracción y generación. |
-| Embeddings | BGE-M3 o Qwen3 Embedding multilingüe | Consultas y documentos en español/inglés. |
-| Vector DB | ChromaDB | Desarrollo local y simple. |
-| SQL | SQLite | Clientes, pólizas, reclamos y tickets ficticios. |
-| Schemas | Pydantic | Validación de entradas y salidas. |
-| MCP | Python MCP SDK | Exponer tools estandarizadas en la ampliación. |
-| UI | Streamlit o React | Chat de demostración. |
-| Observabilidad | Logs estructurados + Langfuse (opcional) | Trazas, latencia y depuración. |
-| Calidad | pytest + dataset de evaluación | Pruebas repetibles. |
-| Contenedores | Docker | Entorno reproducible. |
+| 1 | `scripts/index_documents.py`. cargar CSV en SQLite + PDFs en ChromaDB | BD y vectorstore listos |
+| 2 | `crm_tool.py`. consulta por `customer_id` con validación de ownership | Consulta `BU79786` devuelve sus datos |
+| 3 | `rag_tool.py` + `rag/ingest.py` + `rag/retriever.py` | Retrieval híbrido con citas |
+| 4 | `support_agent.py` + `policy_agent.py` | Cada agente responde de forma independiente |
+| 5 | `orchestrator.py`. LangGraph con enrutamiento y `session.py` | Flujo completo: detecta intención → enruta → responde |
+| 6 | `input_validator.py` + `output_filter.py` | Guardrails activos en entrada y salida |
+| 7 | Evaluación: dataset de preguntas + catálogo de ataques | Métricas de retrieval + seguridad |
 
 ---
 
-## 13. Evaluación: cómo demostrar que funciona
+## 13. Criterios de aceptación del MVP
 
-No basta con mostrar una conversación exitosa. Prepara un conjunto de casos sintéticos y mide cada capacidad.
-
-| Componente | Métrica | Qué verifica |
-|---|---|---|
-| Clasificador | Macro-F1 y matriz de confusión | Calidad por categoría, incluso con clases minoritarias. |
-| Extracción | Exactitud por campo / F1 | Fecha, lugar, producto y descripción. |
-| Retrieval | Recall@K / MRR | Si recupera las cláusulas relevantes. |
-| Respuesta RAG | Faithfulness / groundedness | Si responde solo con evidencia recuperada. |
-| Citas | Citation precision | Si la cita realmente respalda la afirmación. |
-| Ticketing | Tool success rate | Si crea tickets válidos sin duplicados. |
-| Seguridad | Tasa de acciones no autorizadas | Si bloquea acciones sin confirmación. |
-| Sistema | Latencia p50/p95 y errores | Rendimiento y estabilidad. |
-
-### Casos de prueba mínimos
-
-- Choque de vehículo con póliza vigente.
-- Robo de vehículo con póliza vencida.
-- Usuario pregunta por una exclusión que sí está en el documento.
-- Consulta sobre una cobertura ausente de los documentos.
-- Documentos con versiones contradictorias.
-- Reclamo sin fecha o sin producto identificado.
-- Usuario pide crear ticket, pero luego no confirma.
-- Usuario consulta un ticket de otro cliente.
-- Prompt injection dentro de un documento recuperado.
-- Reintento de creación de ticket para evitar duplicados.
+- El cliente `BU79786` puede preguntar por sus datos y el sistema los devuelve correctamente desde SQLite
+- El sistema responde preguntas de cobertura con cita de documento + página
+- Si no hay evidencia en los PDFs, se abstiene y lo indica
+- No devuelve datos de un cliente diferente al de la sesión activa
+- Los fragmentos RAG no pueden manipular el comportamiento del LLM
+- Todos los pasos quedan trazados en logs estructurados locales sin PII expuesta
 
 ---
 
-## 14. Orden de implementación recomendado
+## 14. Decisiones de diseño
 
-| Fase | Construcción | Resultado verificable |
-|---|---|---|
-| 1 | Crear pólizas, clientes, reclamos y tickets ficticios. | Dataset coherente y reproducible. |
-| 2 | Implementar Policy RAG: ingestión, metadatos, embeddings y recuperación. | Respuestas con citas y abstención. |
-| 3 | Implementar Claims Classifier con Pydantic y reglas de validación. | Clasificación y extracción estructurada. |
-| 4 | Implementar Ticket Agent y SQLite. | Crear y consultar tickets con confirmación. |
-| 5 | Construir Orchestrator con LangGraph y estado de workflow. | Flujo completo entre los tres agentes. |
-| 6 | Añadir guardrails, escalamiento y memoria de sesión. | Flujo seguro y recuperable. |
-| 7 | Exponer una o más tools mediante MCP. | Interoperabilidad demostrable. |
-| 8 | Crear UI, Docker, pruebas y evaluación. | Demo reproducible y medible. |
+- **Dos tools concretas** en lugar de N agentes complejos: `crm_tool` para datos estructurados, `rag_tool` para documentos. Simple y trazable.
+- **SQLite como CRM**: el CSV de Kaggle se carga una vez en SQLite. Las consultas SQL son verificables, no dependen del LLM.
+- **ChromaDB local**: sin infraestructura adicional para el prototipo. El vectorstore se persiste en `data/vectorstore/`.
+- **EnsembleRetriever**: la búsqueda híbrida (dense + BM25) mejora recall sin añadir complejidad de infraestructura.
+- **Ownership check en el backend**: el LLM no valida pertenencia de recursos. La función `crm_tool` lo hace antes de ejecutar el SQL.
+- **Separación datos/instrucciones en prompts**: los fragmentos RAG siempre van en una sección delimitada `[CONTEXT]`, nunca mezclados con instrucciones del sistema.
+- **Human-in-the-loop como regla determinista**: si la confianza del agente es baja o el caso es ambiguo, escala. No depende del LLM para esta decisión.
 
----
-
-## 15. Criterios de aceptación del MVP
-
-El MVP se considera funcional cuando:
-
-- El usuario puede reportar un incidente en lenguaje natural.
-- El clasificador devuelve una categoría, confianza y campos extraídos con esquema validado.
-- El asistente responde preguntas de póliza con citas a documentos sintéticos.
-- Si no existe evidencia, reconoce que no puede confirmar la cobertura.
-- El flujo pregunta por los datos obligatorios que falten.
-- El ticket solo se crea después de una confirmación explícita.
-- El usuario puede consultar el ticket por su identificador y autorización.
-- Los casos ambiguos se derivan a revisión humana simulada.
-- Las acciones y respuestas pueden rastrearse en logs sin exponer datos sensibles.
-
----
-
-## 16. Decisiones de arquitectura: resumen
-
-- **Tres agentes funcionales + un orquestador**: separan interpretación, conocimiento contractual y acciones transaccionales.
-- **Un Policy RAG inicial**: centraliza el conocimiento documental; los procedimientos pueden compartir índice con metadatos o separarse cuando la evaluación y los permisos lo justifiquen.
-- **SQLite + ChromaDB**: SQL conserva la verdad transaccional; ChromaDB permite recuperar evidencia documental.
-- **Tools Python primero, MCP después**: MCP aporta interoperabilidad, pero no es requisito para demostrar Agentic RAG.
-- **Memoria de sesión primero**: conserva el contexto del flujo sin confundirlo con pólizas o tickets.
-- **Human-in-the-loop**: evita que una respuesta generada se convierta en una decisión contractual o financiera.
-
-**Arquitectura final recomendada:** Orchestrator (LangGraph) + Claims Classifier Agent + Policy Assistant Agent (Policy RAG) + Ticket Management Agent + tools Python/MCP + SQLite + ChromaDB + session/workflow memory + guardrails + evaluación.
-
-> Todos los nombres, pólizas, personas, incidentes, importes y tickets del prototipo deben ser ficticios. La simulación demuestra arquitectura y comportamiento técnico; no representa reglas reales de una aseguradora.
+> Todos los datos del prototipo son sintéticos o de dominio público (Kaggle). No representan pólizas ni clientes reales.

@@ -1,5 +1,5 @@
 # =============================================================
-# AI-ASSISTANT-INSURANCE — requirements.txt
+# AI-ASSISTANT-INSURANCE: requirements.txt
 # Instalar con: uv pip install -r requirements.txt
 # Python >= 3.11
 # =============================================================
@@ -10,7 +10,7 @@ langchain-core==0.3.17
 langchain-community==0.3.7
 langchain-openai==0.2.7
 langgraph==0.2.44
-langsmith==0.1.139
+logs_locales==0.1.139
 
 # LLM
 openai==1.54.4

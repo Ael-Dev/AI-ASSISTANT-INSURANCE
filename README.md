@@ -1,9 +1,9 @@
-# AI Assistant Insurance — Agentic RAG
+# AI Assistant Insurance: Agentic RAG
 
 Asistente de soporte para una aseguradora de autos, construido como prototipo académico sobre arquitectura **Agentic RAG** con LangChain y LangGraph.
 
-> Proyecto académico · Curso de Ciberseguridad en IA  
-> Diseño del sistema: [`AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md`](AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md)  
+> Proyecto académico · Curso de Ciberseguridad en IA
+> Diseño del sistema: [`AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md`](AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md)
 > Documentación: [`docs/index.md`](docs/index.md)
 
 ---
@@ -14,8 +14,8 @@ Un usuario puede simular ser un cliente (ej. `BU79786`) y preguntarle al asisten
 
 | Fuente | Tipo | Uso |
 |---|---|---|
-| `AutoInsurance.csv` (Kaggle) | Datos estructurados — CSV cargado en SQLite | CRM simulado: consultar póliza, quejas abiertas, cobertura, tipo de vehículo por `Customer ID` |
-| PDFs operativos (Apex Shield Insurance) | Datos no estructurados — indexados en ChromaDB | RAG: responder preguntas sobre procesos, coberturas y procedimientos de reclamos |
+| `AutoInsurance.csv` (Kaggle) | Datos estructurados. CSV cargado en SQLite | CRM simulado: consultar póliza, quejas abiertas, cobertura y tipo de vehículo por `Customer ID` |
+| PDFs operativos (Apex Shield Insurance) | Datos no estructurados. Indexados en ChromaDB | RAG: responder preguntas sobre procesos, coberturas y procedimientos de reclamos |
 
 El agente decide qué fuente consultar según la pregunta, usando **Tool Calling**.
 
@@ -27,7 +27,7 @@ El agente decide qué fuente consultar según la pregunta, usando **Tool Calling
 |---|---|
 | **RAG Híbrido** | Recuperación de FAQs y manuales operativos via dense search + BM25 |
 | **Tool Calling sobre SQLite** | El agente consulta el CRM simulado (`AutoInsurance.csv`) para datos del cliente en tiempo real |
-| **Agentes especializados** | Orchestrator → Policy Agent → Support Agent, orquestados con LangGraph |
+| **Agentes especializados** | Orchestrator, Policy Agent y Support Agent orquestados con LangGraph |
 | **Memoria de sesión** | Estado de la conversación persistido por `session_id` |
 | **Guardrails** | Validación de entrada/salida, control de acceso por cliente, anonimización de PII en logs |
 
@@ -44,10 +44,10 @@ data/
 │
 └── synthetic/
     └── structured/
-        └── AutoInsurance.csv     ← dataset Kaggle — CRM simulado (9.134 registros)
+        └── AutoInsurance.csv     ← dataset Kaggle. CRM simulado (9.134 registros)
 ```
 
-**`AutoInsurance.csv`** — columnas clave que usa el agente:
+**`AutoInsurance.csv`: columnas clave que usa el agente:**
 
 | Campo | Descripción |
 |---|---|
@@ -83,36 +83,57 @@ AI-ASSISTANT-INSURANCE/
 │   └── regulatorio.md               ← entregable 7
 │
 ├── src/
-│   ├── agents/                      ← agentes LangGraph (orchestrator, policy, support)
-│   ├── tools/                       ← tools: consulta SQL al CRM, búsqueda RAG, tickets
-│   ├── rag/                         ← pipeline RAG (ingestión PDFs → ChromaDB)
-│   │   ├── data_ingestion/
-│   │   ├── embeddings/
-│   │   ├── vectorstore/
-│   │   └── retrieval/               ← EnsembleRetriever: dense + BM25
-│   ├── memory/                      ← session store y workflow state (SQLite)
+│   ├── agents/
+│   │   ├── orchestrator.py          ← grafo LangGraph principal
+│   │   ├── policy_agent.py          ← responde sobre coberturas (usa rag_tool)
+│   │   └── support_agent.py         ← consulta datos del cliente (usa crm_tool)
+│   │
+│   ├── tools/
+│   │   ├── crm_tool.py              ← Tool Calling hacia SQLite (AutoInsurance.csv)
+│   │   └── rag_tool.py              ← Tool Calling hacia ChromaDB (PDFs)
+│   │
+│   ├── rag/
+│   │   ├── ingest.py                ← carga PDFs, genera chunks y los indexa en ChromaDB
+│   │   └── retriever.py             ← EnsembleRetriever: dense + BM25
+│   │
+│   ├── memory/
+│   │   └── session.py               ← historial de conversación por session_id
+│   │
 │   ├── security/
-│   │   ├── guardrails/              ← filtros de entrada/salida
-│   │   └── validators/              ← anti-injection, control de acceso por cliente
-│   ├── schemas/                     ← modelos Pydantic
-│   ├── prompts/                     ← templates de prompts
-│   ├── chains/                      ← chains reutilizables
-│   ├── config/                      ← settings centralizados
-│   └── api/                         ← FastAPI
+│   │   ├── guardrails/
+│   │   │   └── output_filter.py     ← filtra respuestas antes de entregar al usuario
+│   │   └── validators/
+│   │       └── input_validator.py   ← valida entrada, detecta injection, verifica customer_id
+│   │
+│   ├── schemas/
+│   │   ├── customer.py              ← modelo Pydantic del cliente (campos del CSV)
+│   │   └── query.py                 ← modelo de la consulta entrante
+│   │
+│   ├── prompts/
+│   │   └── system_prompts.py        ← templates de prompts centralizados
+│   │
+│   └── config/
+│       └── settings.py              ← variables de entorno y configuración global
+│
+├── data/
+│   ├── raw/                         ← 3 PDFs sintéticos de Apex Shield Insurance
+│   ├── synthetic/structured/
+│   │   └── AutoInsurance.csv        ← dataset Kaggle. CRM simulado
+│   └── vectorstore/                 ← índice ChromaDB persistido (generado en runtime)
 │
 ├── evaluation/
-│   ├── catalog/                     ← preguntas legítimas + catálogo de ataques (JSONL)
+│   ├── catalog/                     ← consultas legítimas + ataques (JSONL)
 │   ├── results/                     ← métricas y gráficos por corrida
-│   └── notebooks/                   ← notebook de evaluación (abre en Colab)
+│   └── notebooks/                   ← evaluacion_colab.ipynb
 │
 ├── logs/
 │   └── attack_runs/                 ← registros de corridas de seguridad
 │
-├── tests/
-│   ├── unit/
-│   └── integration/
+├── tests/                           ← tests del sistema
 │
-└── scripts/                         ← ingesta de PDFs e indexado inicial
+└── scripts/
+    ├── index_documents.py           ← indexa los PDFs en ChromaDB
+    └── run_assistant.py             ← CLI interactivo del asistente
 ```
 
 ---
@@ -141,7 +162,7 @@ uv pip install -r requirements.txt
 
 # 4. Variables de entorno
 cp .env.example .env
-# Editar .env: OPENAI_API_KEY, LANGSMITH_API_KEY
+# Editar .env con tu OPENAI_API_KEY
 
 # 5. Indexar PDFs en ChromaDB (primera vez)
 python scripts/index_documents.py
@@ -149,13 +170,10 @@ python scripts/index_documents.py
 # 6. Correr el asistente (CLI)
 python scripts/run_assistant.py
 
-# 7. Correr la API
-uvicorn src.api.main:app --reload --port 8000
-
-# 8. Evaluación
+# 7. Evaluación
 python evaluation/notebooks/correr_evaluacion.py
 
-# 9. Tests
+# 8. Tests
 pytest tests/ -v
 ```
 
@@ -167,11 +185,10 @@ pytest tests/ -v
 |---|---|
 | `OPENAI_API_KEY` | API key del LLM |
 | `OPENAI_MODEL` | Modelo (default: `gpt-4o-mini`) |
-| `LANGCHAIN_API_KEY` | LangSmith — trazabilidad |
-| `LANGCHAIN_PROJECT` | Nombre del proyecto en LangSmith |
 | `CHROMA_PERSIST_DIR` | Directorio del vector store (default: `./data/vectorstore`) |
 | `SQLITE_DB_PATH` | Ruta de la BD SQLite con el CRM simulado |
 | `MEMORY_BACKEND` | `sqlite` / `in_memory` |
+| `LOG_LEVEL` | Nivel de logs (`INFO` / `DEBUG`) |
 
 ---
 
@@ -184,17 +201,16 @@ pytest tests/ -v
 | LLM | OpenAI / modelo compatible |
 | Embeddings | BGE-M3 o equivalente |
 | Vector Store (RAG) | ChromaDB |
-| BD estructurada (CRM) | SQLite — cargado desde `AutoInsurance.csv` |
+| BD estructurada (CRM) | SQLite cargado desde `AutoInsurance.csv` |
 | Retrieval híbrido | Dense + BM25 (EnsembleRetriever) |
 | Memoria | SQLite + LangChain |
-| API | FastAPI |
 | Guardrails | Presidio + validators propios |
-| Trazabilidad | LangSmith |
+| Trazabilidad | Logs estructurados locales |
 | Gestor de paquetes | uv |
 
 ---
 
 ## Nota sobre los datos
 
-Los PDFs en `data/raw/` son documentos **sintéticos** de una aseguradora ficticia (*Apex Shield Insurance*).  
+Los PDFs en `data/raw/` son documentos **sintéticos** de una aseguradora ficticia (*Apex Shield Insurance*).
 El CSV `AutoInsurance.csv` es el [Auto Insurance Dataset de Kaggle](https://www.kaggle.com/), usado como CRM simulado. No contiene datos personales reales.

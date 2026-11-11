@@ -1,53 +1,41 @@
-# Entregable 4 — Priorización de Controles
+# Entregable 4: Priorización de Controles
 
-## Criterios de priorización
+> Ver amenazas en [`modelo-de-amenazas.md`](modelo-de-amenazas.md)  
+> Ver implementación en [`controles.md`](controles.md)
 
-Los controles se priorizan según tres criterios combinados:
+## Criterios
 
-1. **Riesgo residual** (del modelo de amenazas): amenazas de mayor riesgo se abordan primero.
-2. **Esfuerzo de implementación**: controles de bajo esfuerzo y alto impacto tienen prioridad.
-3. **Obligatoriedad funcional**: algunos controles son requisito para que el sistema funcione correctamente (ej. confirmación antes de crear ticket).
+1. **Riesgo residual**. amenazas de mayor riesgo se abordan primero
+2. **Esfuerzo de implementación**. bajo esfuerzo + alto impacto tiene prioridad
+3. **Obligatoriedad funcional**. algunos controles son requisito para que el sistema sea demostrable de forma segura
 
 ---
 
 ## Matriz de priorización
 
-| # | Control | Amenaza que mitiga | Riesgo | Esfuerzo | Prioridad | Estado |
-|---|---|---|---|---|---|---|
-| C1 | Separación datos/instrucciones en prompts | A1 Prompt injection | Crítico | Bajo | **P1** | Pendiente |
-| C2 | Validación backend de ownership de recursos | A2 Acceso no autorizado | Alto | Bajo | **P1** | Pendiente |
-| C3 | Estado `awaiting_confirmation` antes de escribir | A4 Tickets sin consentimiento | Alto | Bajo | **P1** | Pendiente |
-| C4 | Verificación de evidencia antes de responder | A5 Alucinación | Alto | Medio | **P1** | Pendiente |
-| C5 | Anonimización PII con Presidio antes de logs | A3 PII en logs | Medio | Medio | **P2** | Pendiente |
-| C6 | Límite de tokens por request + rate limiting | A6 DoS por contexto | Bajo | Bajo | **P2** | Pendiente |
-| C7 | Validación de esquema de salida del LLM (Pydantic) | A1, A4 | Alto | Bajo | **P1** | Pendiente |
-| C8 | Human-in-the-loop para casos de alta incertidumbre | A5 | Alto | Medio | **P2** | Pendiente |
-| C9 | Trazabilidad completa con LangSmith | Todos | Transversal | Bajo | **P1** | Pendiente |
-| C10 | Abstención explícita cuando falta evidencia RAG | A5 | Alto | Bajo | **P1** | Pendiente |
+| # | Control | Amenaza | Riesgo | Esfuerzo | Prioridad |
+|---|---|---|---|---|---|
+| C1 | Input Validator | A1 Injection directa + A6 DoS | Crítico | Bajo | **P1** |
+| C2 | Ownership Check en `crm_tool` | A3 Acceso no autorizado | Alto | Bajo | **P1** |
+| C3 | Separación datos/instrucciones en prompt | A2 Injection via RAG | Alto | Bajo | **P1** |
+| C7 | Abstención RAG (score mínimo) | A5 Alucinación | Alto | Bajo | **P1** |
+| C4 | Output Filter / DLP (Presidio) | A4 PII en respuesta | Medio | Medio | **P2** |
+| C5 | Logs sin PII (logs estructurados locales config) | A4 PII en logs | Medio | Bajo | **P2** |
+| C6 | Human-in-the-loop (regla determinista) | A5 casos ambiguos | Alto | Medio | **P2** |
 
 ---
 
-## Controles P1 — Implementar en el MVP
+## P1: Obligatorio para el MVP
 
-Estos controles son obligatorios para considerar el sistema seguro para una demostración:
+Estos controles son necesarios para que el sistema pueda demostrarse sin exponer datos ni ejecutar acciones no previstas:
 
-- **C1** — Prompts con secciones claramente delimitadas (`<system>`, `<retrieved_context>`, `<user_input>`)
-- **C2** — Toda función de tool valida que `policy_id` / `ticket_id` pertenece al `customer_id` de la sesión
-- **C3** — El workflow nunca ejecuta `create_ticket` sin pasar por el estado `awaiting_confirmation`
-- **C4** — La función `check_evidence_sufficiency` se ejecuta antes de cada respuesta de cobertura
-- **C7** — Todos los outputs del LLM se parsean con modelos Pydantic; errores de parsing generan abstención
-- **C9** — LangSmith activo desde el inicio; cada ejecución genera una traza rastreable
-- **C10** — Si el retriever devuelve menos de N fragmentos relevantes, el agente se abstiene
+- **C1**. Validar tokens y patrones de injection antes de que el mensaje llegue al LLM
+- **C2**. `crm_tool` verifica `customer_id` de sesión antes de ejecutar SQL
+- **C3**. Los PDFs recuperados van en sección `[CONTEXT]` delimitada, no como instrucciones
+- **C7**. Si el retriever no encuentra evidencia suficiente, el Policy Agent se abstiene
 
-## Controles P2 — Implementar antes de la entrega final
+## P2: Implementar antes de la entrega final
 
-- **C5** — Presidio ejecuta anonimización sobre el objeto de log antes de escribirlo
-- **C6** — Middleware FastAPI rechaza requests que superen `MAX_INPUT_TOKENS`
-- **C8** — Reglas deterministas de escalamiento: confianza < umbral → cola humana
-
----
-
-## Notas
-
-- La priorización asume un entorno de demostración con datos sintéticos. Un despliegue real requeriría análisis adicional de autenticación, cifrado en tránsito y cumplimiento regulatorio.
-- Ver [`controles.md`](controles.md) para la implementación detallada de cada control.
+- **C4**. Presidio filtra PII en la respuesta final antes de entregar al usuario
+- **C5**. logs estructurados locales configurado para excluir campos sensibles de las trazas
+- **C6**. Reglas deterministas de escalamiento en el Orchestrator

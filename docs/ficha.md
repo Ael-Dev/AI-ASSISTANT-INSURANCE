@@ -1,10 +1,10 @@
-# Entregable 1 — Ficha del Proyecto
+# Entregable 1: Ficha del Proyecto
 
 ## Datos generales
 
 | Campo | Valor |
 |---|---|
-| **Nombre del proyecto** | AI Assistant Insurance — Agentic RAG |
+| **Nombre del proyecto** | AI Assistant Insurance. Agentic RAG |
 | **Curso** | _(completar)_ |
 | **Universidad** | _(completar)_ |
 | **Fecha de inicio** | _(completar)_ |
