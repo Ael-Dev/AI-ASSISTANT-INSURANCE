@@ -1,23 +1,63 @@
 # AI Assistant Insurance — Agentic RAG
 
-Asistente inteligente para el sector seguros construido sobre una arquitectura **Agentic RAG** con LangChain y LangGraph.  
-Combina recuperación híbrida de documentos de pólizas, agentes especializados con herramientas, y memoria persistente entre sesiones.
+Asistente de soporte para una aseguradora de autos, construido como prototipo académico sobre arquitectura **Agentic RAG** con LangChain y LangGraph.
 
-> Proyecto académico · Universidad  
-> Arquitectura completa: [`AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md`](AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md)  
-> Documentación: [`docs/index.md`](docs/index.md)  
-> Plan de trabajo en equipo: [`PLANIFICACION-EQUIPO.md`](PLANIFICACION-EQUIPO.md)
+> Proyecto académico · Curso de Ciberseguridad en IA  
+> Diseño del sistema: [`AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md`](AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md)  
+> Documentación: [`docs/index.md`](docs/index.md)
 
 ---
 
-## ¿Qué hace este sistema?
+## ¿Qué hace?
 
-| Capacidad | Descripción |
+Un usuario puede simular ser un cliente (ej. `BU79786`) y preguntarle al asistente sobre su póliza. El sistema combina dos fuentes de datos:
+
+| Fuente | Tipo | Uso |
+|---|---|---|
+| `AutoInsurance.csv` (Kaggle) | Datos estructurados — CSV cargado en SQLite | CRM simulado: consultar póliza, quejas abiertas, cobertura, tipo de vehículo por `Customer ID` |
+| PDFs operativos (Apex Shield Insurance) | Datos no estructurados — indexados en ChromaDB | RAG: responder preguntas sobre procesos, coberturas y procedimientos de reclamos |
+
+El agente decide qué fuente consultar según la pregunta, usando **Tool Calling**.
+
+---
+
+## Capacidades del sistema
+
+| Componente | Descripción |
 |---|---|
-| **RAG Híbrido** | Recupera contexto de pólizas, coberturas y normativa usando BM25 + embeddings densos |
-| **Agentes con herramientas** | Orchestrator → Claims Classifier → Policy Assistant → Ticket Agent, cada uno con tools Python |
-| **Memoria entre sesiones** | Estado de conversación y workflow persistidos por `session_id` en SQLite |
-| **Seguridad / Guardrails** | Validación de I/O, detección de prompt injection, anonimización de PII en logs |
+| **RAG Híbrido** | Recuperación de FAQs y manuales operativos via dense search + BM25 |
+| **Tool Calling sobre SQLite** | El agente consulta el CRM simulado (`AutoInsurance.csv`) para datos del cliente en tiempo real |
+| **Agentes especializados** | Orchestrator → Policy Agent → Support Agent, orquestados con LangGraph |
+| **Memoria de sesión** | Estado de la conversación persistido por `session_id` |
+| **Guardrails** | Validación de entrada/salida, control de acceso por cliente, anonimización de PII en logs |
+
+---
+
+## Datos
+
+```
+data/
+├── raw/                          ← documentos PDF fuente del RAG
+│   ├── Manual Completo de Manejo de Reclamaciones y FAQ...pdf
+│   ├── Manual Operativo de Políticas y Procedimientos...pdf
+│   └── Tabla de Costos y Procedimientos Operativos...pdf
+│
+└── synthetic/
+    └── structured/
+        └── AutoInsurance.csv     ← dataset Kaggle — CRM simulado (9.134 registros)
+```
+
+**`AutoInsurance.csv`** — columnas clave que usa el agente:
+
+| Campo | Descripción |
+|---|---|
+| `Customer` | ID del cliente (ej. `BU79786`) |
+| `Policy Type` / `Policy` | Tipo y nivel de póliza |
+| `Coverage` | Cobertura (Basic / Extended / Premium) |
+| `Number of Open Complaints` | Quejas activas del cliente |
+| `Total Claim Amount` | Monto total de reclamos |
+| `Vehicle Class` / `Vehicle Size` | Tipo de vehículo asegurado |
+| `Customer Lifetime Value` | Valor del cliente |
 
 ---
 
@@ -26,137 +66,93 @@ Combina recuperación híbrida de documentos de pólizas, agentes especializados
 ```
 AI-ASSISTANT-INSURANCE/
 │
-├── README.md                              ← este archivo
-├── pyproject.toml                         ← configuración del proyecto (uv)
-├── requirements.txt                       ← dependencias exportadas
-├── .env.example                           ← plantilla de variables de entorno
-├── AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md  ← diseño completo
-├── PLANIFICACION-EQUIPO.md                ← historias de usuario y plan de 4 personas
+├── README.md
+├── pyproject.toml                   ← configuración del proyecto (uv)
+├── requirements.txt                 ← dependencias
+├── .env.example                     ← plantilla de variables de entorno
+├── AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md
 │
-├── docs/                                  ← documentación y entregables académicos
-│   ├── index.md                           ← portada
-│   ├── ficha.md                           ← entregable 1 — ficha del proyecto
-│   ├── arquitectura.md                    ← entregable 2 — diagrama Mermaid
-│   ├── modelo-de-amenazas.md              ← entregable 3 — threat model
-│   ├── priorizacion.md                    ← entregable 4 — priorización de controles
-│   ├── controles.md                       ← entregable 5 — controles implementados
-│   ├── evaluacion.md                      ← entregable 6 — evaluación del sistema
-│   └── regulatorio.md                     ← entregable 7 — marco regulatorio
+├── docs/                            ← entregables académicos
+│   ├── index.md
+│   ├── ficha.md                     ← entregable 1
+│   ├── arquitectura.md              ← entregable 2 (diagrama Mermaid)
+│   ├── modelo-de-amenazas.md        ← entregable 3
+│   ├── priorizacion.md              ← entregable 4
+│   ├── controles.md                 ← entregable 5
+│   ├── evaluacion.md                ← entregable 6
+│   └── regulatorio.md               ← entregable 7
 │
-├── src/                                   ← código fuente del producto
-│   ├── config/                            ← settings y variables centralizadas
-│   ├── schemas/                           ← modelos Pydantic (Claim, Policy, Ticket)
-│   │
-│   ├── rag/                               ← pipeline RAG completo
-│   │   ├── data_ingestion/                ← carga de PDFs, DOCX y Markdown
-│   │   ├── embeddings/                    ← modelo de embeddings
-│   │   ├── vectorstore/                   ← conexión ChromaDB
-│   │   └── retrieval/                     ← retrieval híbrido (dense + BM25)
-│   │
-│   ├── agents/                            ← agentes LangGraph
-│   │   ├── orchestrator.py                ← agente orquestador principal
-│   │   ├── claims_classifier.py           ← clasifica y extrae entidades del reclamo
-│   │   ├── policy_assistant.py            ← responde consultas con RAG + citas
-│   │   └── ticket_manager.py              ← crea y consulta tickets con confirmación
-│   │
-│   ├── tools/                             ← herramientas que invocan los agentes
-│   │   ├── claims_tools.py                ← classify_claim, extract_entities, validate_policy
-│   │   ├── policy_tools.py                ← search_policy_documents, get_policy_metadata
-│   │   └── ticket_tools.py                ← create_ticket, get_ticket_status, escalate
-│   │
-│   ├── chains/                            ← chains LangChain reutilizables
-│   ├── prompts/                           ← templates de prompts centralizados
-│   │
-│   ├── memory/                            ← memoria y estado de sesión
-│   │   ├── session_store.py               ← historial de conversación por session_id
-│   │   └── workflow_state.py              ← estado del flujo agentic (SQLite)
-│   │
-│   ├── services/                          ← lógica de negocio desacoplada de los agentes
-│   │   ├── policy_service.py
-│   │   └── ticket_service.py
-│   │
-│   ├── mcp_servers/                       ← servidores MCP (segunda iteración)
-│   │   ├── policy_server.py               ← MCP: search_policy, get_policy_details
-│   │   └── ticket_server.py               ← MCP: create_ticket, get_ticket, escalate
-│   │
-│   ├── security/                          ← seguridad del sistema
-│   │   ├── guardrails/                    ← validación de I/O, filtros de salida
-│   │   └── validators/                    ← validadores de entrada, anti-injection
-│   │
-│   └── api/                               ← capa API con FastAPI
-│       └── main.py
-│
-├── data/
-│   ├── raw/                               ← documentos originales (NO datos reales)
-│   │   ├── policies/                      ← PDFs/DOCX de pólizas sintéticas
-│   │   └── procedures/                    ← manuales de reclamos y matrices de requisitos
-│   ├── processed/                         ← documentos chunkeados y normalizados
-│   ├── synthetic/                         ← JSON con clientes, pólizas, reclamos y tickets ficticios
-│   └── vectorstore/                       ← índice ChromaDB persistido
+├── src/
+│   ├── agents/                      ← agentes LangGraph (orchestrator, policy, support)
+│   ├── tools/                       ← tools: consulta SQL al CRM, búsqueda RAG, tickets
+│   ├── rag/                         ← pipeline RAG (ingestión PDFs → ChromaDB)
+│   │   ├── data_ingestion/
+│   │   ├── embeddings/
+│   │   ├── vectorstore/
+│   │   └── retrieval/               ← EnsembleRetriever: dense + BM25
+│   ├── memory/                      ← session store y workflow state (SQLite)
+│   ├── security/
+│   │   ├── guardrails/              ← filtros de entrada/salida
+│   │   └── validators/              ← anti-injection, control de acceso por cliente
+│   ├── schemas/                     ← modelos Pydantic
+│   ├── prompts/                     ← templates de prompts
+│   ├── chains/                      ← chains reutilizables
+│   ├── config/                      ← settings centralizados
+│   └── api/                         ← FastAPI
 │
 ├── evaluation/
-│   ├── catalog/                           ← ataques y consultas legítimas (CSV / JSONL)
-│   ├── results/                           ← JSON y gráficos de cada corrida (versionados)
-│   └── notebooks/                         ← correr_evaluacion.ipynb (abre en Colab)
+│   ├── catalog/                     ← preguntas legítimas + catálogo de ataques (JSONL)
+│   ├── results/                     ← métricas y gráficos por corrida
+│   └── notebooks/                   ← notebook de evaluación (abre en Colab)
 │
 ├── logs/
-│   └── attack_runs/                       ← muestra de registros de corridas de ataque
+│   └── attack_runs/                 ← registros de corridas de seguridad
 │
 ├── tests/
-│   ├── unit/                              ← tests por módulo
-│   └── integration/                       ← tests end-to-end del flujo agentic
+│   ├── unit/
+│   └── integration/
 │
-├── scripts/                               ← utilidades de ingesta e indexado
-└── .github/
-    └── workflows/                         ← CI/CD pipelines
+└── scripts/                         ← ingesta de PDFs e indexado inicial
 ```
 
 ---
 
 ## Instalación y ejecución local
 
-### Requisitos
-
-- Python 3.11+
-- [`uv`](https://docs.astral.sh/uv/) — gestor de entornos y paquetes
+**Requisitos:** Python 3.11+ y [`uv`](https://docs.astral.sh/uv/)
 
 ```bash
-# Instalar uv
+# Instalar uv si no lo tienes
 pip install uv
 ```
-
-### Pasos
 
 ```bash
 # 1. Clonar
 git clone https://github.com/Ael-Dev/AI-ASSISTANT-INSURANCE.git
 cd AI-ASSISTANT-INSURANCE
 
-# 2. Crear entorno virtual
+# 2. Entorno virtual
 uv venv
-source .venv/bin/activate          # Linux / macOS
-# .venv\Scripts\activate           # Windows
+source .venv/bin/activate        # Linux / macOS
+# .venv\Scripts\activate         # Windows
 
-# 3. Instalar dependencias
+# 3. Dependencias
 uv pip install -r requirements.txt
 
-# Dependencias de desarrollo (opcional)
-uv pip install -r requirements-dev.txt
-
-# 4. Configurar variables de entorno
+# 4. Variables de entorno
 cp .env.example .env
-# Editar .env con tu OPENAI_API_KEY y LANGSMITH_API_KEY
+# Editar .env: OPENAI_API_KEY, LANGSMITH_API_KEY
 
-# 5. Indexar documentos (primera vez)
+# 5. Indexar PDFs en ChromaDB (primera vez)
 python scripts/index_documents.py
 
-# 6. Correr la API
-uvicorn src.api.main:app --reload --port 8000
-
-# 7. Modo CLI interactivo
+# 6. Correr el asistente (CLI)
 python scripts/run_assistant.py
 
-# 8. Correr evaluaciones
+# 7. Correr la API
+uvicorn src.api.main:app --reload --port 8000
+
+# 8. Evaluación
 python evaluation/notebooks/correr_evaluacion.py
 
 # 9. Tests
@@ -170,13 +166,12 @@ pytest tests/ -v
 | Variable | Descripción |
 |---|---|
 | `OPENAI_API_KEY` | API key del LLM |
-| `OPENAI_MODEL` | Modelo a usar (default: `gpt-4o-mini`) |
+| `OPENAI_MODEL` | Modelo (default: `gpt-4o-mini`) |
 | `LANGCHAIN_API_KEY` | LangSmith — trazabilidad |
 | `LANGCHAIN_PROJECT` | Nombre del proyecto en LangSmith |
-| `CHROMA_PERSIST_DIR` | Carpeta donde persiste el vector store |
-| `MEMORY_BACKEND` | `sqlite` / `redis` / `in_memory` |
-
-Ver `.env.example` para la lista completa.
+| `CHROMA_PERSIST_DIR` | Directorio del vector store (default: `./data/vectorstore`) |
+| `SQLITE_DB_PATH` | Ruta de la BD SQLite con el CRM simulado |
+| `MEMORY_BACKEND` | `sqlite` / `in_memory` |
 
 ---
 
@@ -184,33 +179,22 @@ Ver `.env.example` para la lista completa.
 
 | Capa | Tecnología |
 |---|---|
-| Orquestación de agentes | LangGraph |
+| Orquestación | LangGraph |
 | Framework LLM | LangChain |
-| LLM | OpenAI GPT-4o-mini (o compatible) |
-| Embeddings | `text-embedding-3-small` / BGE-M3 |
-| Vector Store | ChromaDB |
-| Retrieval híbrido | ChromaDB + BM25 (EnsembleRetriever) |
-| Memoria | SQLite + LangChain ConversationSummaryBufferMemory |
+| LLM | OpenAI / modelo compatible |
+| Embeddings | BGE-M3 o equivalente |
+| Vector Store (RAG) | ChromaDB |
+| BD estructurada (CRM) | SQLite — cargado desde `AutoInsurance.csv` |
+| Retrieval híbrido | Dense + BM25 (EnsembleRetriever) |
+| Memoria | SQLite + LangChain |
 | API | FastAPI |
-| Guardrails / PII | Presidio + custom validators |
+| Guardrails | Presidio + validators propios |
 | Trazabilidad | LangSmith |
 | Gestor de paquetes | uv |
 
 ---
 
-## Datos sintéticos
+## Nota sobre los datos
 
-**Ningún dato real de personas, pólizas o siniestros está incluido en este repositorio.**  
-Todos los registros en `data/synthetic/` son ficticios y sirven únicamente para demostrar la arquitectura.
-
----
-
-## Equipo
-
-Proyecto de 4 personas — ver [`PLANIFICACION-EQUIPO.md`](PLANIFICACION-EQUIPO.md) para roles, historias de usuario y dependencias.
-
----
-
-## Licencia
-
-MIT
+Los PDFs en `data/raw/` son documentos **sintéticos** de una aseguradora ficticia (*Apex Shield Insurance*).  
+El CSV `AutoInsurance.csv` es el [Auto Insurance Dataset de Kaggle](https://www.kaggle.com/), usado como CRM simulado. No contiene datos personales reales.
