@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.0
     # Máximo de tokens que puede generar el modelo por respuesta
     llm_max_output_tokens: int = Field(default=512, gt=0)
+    # Activar el razonamiento interno en modelos que lo soportan. Apagado es más rápido
+    llm_reasoning: bool = False
     # Proveedor del modelo juez
     judge_provider: ModelProvider = ModelProvider.OLLAMA
     # Nombre del modelo juez
