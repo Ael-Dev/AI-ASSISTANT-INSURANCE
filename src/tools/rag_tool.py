@@ -1,4 +1,10 @@
-"""Tool de LangChain que el agente de políticas usa para consultar los manuales."""
+"""Tool de LangChain que el agente de políticas usa para consultar los manuales.
+
+El resultado vuelve al modelo como mensaje de tool y no como texto del usuario.
+"""
+
+# Librería estándar
+from xml.sax.saxutils import escape, quoteattr
 
 # Librerías externas
 from langchain_core.embeddings import Embeddings
@@ -10,19 +16,34 @@ from src.config.settings import Settings
 from src.rag.retriever import create_hybrid_retriever
 
 
-# Dar formato a los fragmentos con su fuente
-def format_documents_with_citations(documents: list) -> str:
-    """Une los fragmentos indicando el documento de origen para poder citarlo."""
+# Dar formato XML a los fragmentos para que el modelo los trate como datos
+def format_documents_as_sources(documents: list) -> str:
+    """Envuelve cada fragmento en una etiqueta source con atributos que fija el sistema."""
     # Si la búsqueda no encontró nada
     if not documents:
         # Mensaje claro para el agente
-        return "No se encontró información relevante en los manuales."
-    # Unir los fragmentos separados por línea en blanco
-    return "\n\n".join(
-        f"[Fuente: {document.metadata.get('document_name', 'desconocida')}]\n"
-        f"{document.page_content}"
-        for document in documents
-    )
+        return "<sources></sources>"
+
+    # Construir una etiqueta source por fragmento
+    source_blocks = []
+    for position, document in enumerate(documents, start=1):
+        # Unir los títulos disponibles como sección del fragmento
+        section_titles = [
+            document.metadata[key]
+            for key in ("section", "subsection", "topic")
+            if key in document.metadata
+        ]
+        # Escapar los atributos para que no puedan romper la etiqueta
+        attributes = (
+            f"id={quoteattr(str(position))} "
+            f"document={quoteattr(document.metadata.get('document_name', 'desconocido'))} "
+            f"section={quoteattr(' > '.join(section_titles))}"
+        )
+        # Escapar el contenido para que no pueda cerrar la etiqueta ni abrir otras
+        source_blocks.append(f"<source {attributes}>\n{escape(document.page_content)}\n</source>")
+
+    # Devolver todos los fragmentos dentro de un único bloque
+    return "<sources>\n" + "\n".join(source_blocks) + "\n</sources>"
 
 
 # Crear la tool con un retriever dado
@@ -35,7 +56,7 @@ def create_rag_tool(retriever: BaseRetriever) -> BaseTool:
     def search_policy_documents(question: str) -> str:
         """Busca en los manuales de la aseguradora procedimientos, coberturas, costos y reclamos."""
         # Buscar y devolver fragmentos con fuente
-        return format_documents_with_citations(retriever.invoke(question))
+        return format_documents_as_sources(retriever.invoke(question))
 
     # Devolver la tool creada
     return search_policy_documents
