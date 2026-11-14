@@ -26,7 +26,7 @@ Cada rol tiene su propio modelo y se cambia solo por variables de entorno. Los r
 ```bash
 # Local
 LLM_PROVIDER=ollama
-LLM_NAME=qwen3:8b
+LLM_NAME=qwen2.5:3b
 
 # De pago
 LLM_PROVIDER=anthropic

@@ -49,13 +49,13 @@ class Settings(BaseSettings):
     # Proveedor del modelo principal
     llm_provider: ModelProvider = ModelProvider.OLLAMA
     # Nombre del modelo principal
-    llm_name: str = "qwen3:8b"
+    llm_name: str = "qwen2.5:3b"
     # Temperatura del modelo principal
     llm_temperature: float = 0.0
     # Proveedor del modelo juez
     judge_provider: ModelProvider = ModelProvider.OLLAMA
     # Nombre del modelo juez
-    judge_name: str = "qwen3:8b"
+    judge_name: str = "qwen2.5:3b"
     # Temperatura del modelo juez
     judge_temperature: float = 0.0
     # Proveedor del modelo de embeddings
