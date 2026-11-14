@@ -22,7 +22,7 @@ El agente decide qué fuente consultar según la intención:
 | Intención | Fuente | Tool |
 |---|---|---|
 | Datos del cliente / póliza específica | `AutoInsurance.csv` → SQLite | `crm_tool` |
-| Coberturas, exclusiones, procedimientos | 3 PDFs operativos → ChromaDB | `rag_tool` |
+| Coberturas, exclusiones, procedimientos | 3 PDFs operativos → LanceDB | `rag_tool` |
 | Ambas | Consulta ambas y sintetiza | Ambas tools |
 
 **Límite:** el asistente es orientativo. No aprueba reclamos, no modifica pólizas, no toma decisiones contractuales.
@@ -57,10 +57,10 @@ flowchart TB
     POL["Policy Agent"]
 
     CRM_T["crm_tool\nTool Calling → SQL"]
-    RAG_T["rag_tool\nTool Calling → ChromaDB"]
+    RAG_T["rag_tool\nTool Calling → LanceDB"]
 
     SQLITE[("CRM Simulado\nAutoInsurance.csv\n→ SQLite")]
-    CHROMA[("Vector Store\nChromaDB")]
+    CHROMA[("Vector Store\nLanceDB")]
     PDFS[("PDFs Operativos\n3 documentos\nApex Shield Insurance")]
 
     MEM[("Memory\nHistorial por session_id")]
@@ -111,14 +111,14 @@ flowchart TB
     POL["Policy Agent"]
 
     CRM_T["crm_tool\nTool Calling → SQL"]
-    RAG_T["rag_tool\nTool Calling → ChromaDB"]
+    RAG_T["rag_tool\nTool Calling → LanceDB"]
 
     OWN["🔴 Ownership Check\nvalidar customer_id\nde sesión vs BD"]
 
     CTX["🔴 Context Injection Risk\nfragmentos RAG tratados\ncomo datos, no instrucciones"]
 
     SQLITE[("CRM Simulado\nAutoInsurance.csv → SQLite")]
-    CHROMA[("Vector Store\nChromaDB")]
+    CHROMA[("Vector Store\nLanceDB")]
     PDFS[("PDFs Operativos\n3 docs Apex Shield")]
 
     MEM[("Memory\nHistorial por session_id")]
@@ -195,7 +195,7 @@ sequenceDiagram
     participant S as Support Agent
     participant P as Policy Agent
     participant DB as SQLite (CRM)
-    participant V as ChromaDB (RAG)
+    participant V as LanceDB (RAG)
 
     User->>UI: "¿Cuántas quejas abiertas tengo?"
     UI->>O: mensaje + session_id
@@ -243,7 +243,7 @@ Columnas clave que usa el sistema:
 ### 6.2 Datos no estructurados: RAG
 
 **Ubicación:** `data/raw/`  
-**Indexados en:** ChromaDB (`data/vectorstore/`)
+**Indexados en:** LanceDB (`data/vectorstore/`)
 
 | Documento | Contenido |
 |---|---|
@@ -259,7 +259,7 @@ PDF (data/raw/)
   → Chunking por secciones (500–800 tokens, 100 de overlap)
   → Metadata: {source, page, section}
   → Embedding (BGE-M3 o text-embedding-3-small)
-  → ChromaDB (data/vectorstore/)
+  → LanceDB (data/vectorstore/)
 ```
 
 **Retrieval híbrido:**
@@ -267,7 +267,7 @@ PDF (data/raw/)
 ```
 Consulta del usuario
   → EnsembleRetriever
-      ├── Dense search (ChromaDB: semántico)
+      ├── Dense search (LanceDB: semántico)
       └── BM25 (keyword: exacto)
   → Top-K fragmentos
   → Prompt con fragmentos como contexto [DATOS, no instrucciones]
@@ -281,7 +281,7 @@ Consulta del usuario
 | Tool | Agente que la usa | Qué hace | Implementación |
 |---|---|---|---|
 | `crm_tool` | Support Agent | Consulta SQLite: datos del cliente por `customer_id` | `src/tools/crm_tool.py` |
-| `rag_tool` | Policy Agent | Busca en ChromaDB: fragmentos relevantes de los PDFs | `src/tools/rag_tool.py` |
+| `rag_tool` | Policy Agent | Busca en LanceDB: fragmentos relevantes de los PDFs | `src/tools/rag_tool.py` |
 | `get_session_state` | Orchestrator | Recupera historial y estado de la sesión actual | `src/memory/session.py` |
 
 **Regla de seguridad:** el LLM propone qué tool llamar y con qué argumentos. El backend valida customer_id, permisos y tipos antes de ejecutar. El LLM nunca accede directamente a la BD.
@@ -323,7 +323,7 @@ Ver detalle en [`docs/controles.md`](docs/controles.md) y [`docs/modelo-de-amena
 | Framework LLM | LangChain |
 | LLM | OpenAI GPT-4o-mini / compatible |
 | Embeddings | BGE-M3 o `text-embedding-3-small` |
-| Vector Store (RAG) | ChromaDB |
+| Vector Store (RAG) | LanceDB |
 | BD estructurada (CRM) | SQLite ← `AutoInsurance.csv` |
 | Retrieval híbrido | Dense + BM25 (EnsembleRetriever) |
 | Memoria de sesión | SQLite + LangChain |
@@ -345,9 +345,9 @@ AI-ASSISTANT-INSURANCE/
 │   │   └── policy_agent.py        ← consulta PDFs (rag_tool) + citas
 │   ├── tools/
 │   │   ├── crm_tool.py            ← SELECT sobre SQLite (AutoInsurance.csv)
-│   │   └── rag_tool.py            ← EnsembleRetriever sobre ChromaDB
+│   │   └── rag_tool.py            ← EnsembleRetriever sobre LanceDB
 │   ├── rag/
-│   │   ├── ingest.py              ← carga PDFs → chunks → ChromaDB
+│   │   ├── ingest.py              ← carga PDFs → chunks → LanceDB
 │   │   └── retriever.py           ← EnsembleRetriever: dense + BM25
 │   ├── memory/
 │   │   └── session.py             ← historial por session_id (SQLite)
@@ -368,7 +368,7 @@ AI-ASSISTANT-INSURANCE/
 │   ├── raw/                       ← 3 PDFs Apex Shield Insurance
 │   ├── synthetic/structured/
 │   │   └── AutoInsurance.csv      ← CRM simulado (Kaggle)
-│   └── vectorstore/               ← ChromaDB persistido
+│   └── vectorstore/               ← LanceDB persistido
 │
 ├── scripts/
 │   ├── index_documents.py         ← indexa PDFs + carga CSV en SQLite
@@ -386,7 +386,7 @@ AI-ASSISTANT-INSURANCE/
 
 | Fase | Qué se construye | Resultado verificable |
 |---|---|---|
-| 1 | `scripts/index_documents.py`. cargar CSV en SQLite + PDFs en ChromaDB | BD y vectorstore listos |
+| 1 | `scripts/index_documents.py`. cargar CSV en SQLite + PDFs en LanceDB | BD y vectorstore listos |
 | 2 | `crm_tool.py`. consulta por `customer_id` con validación de ownership | Consulta `BU79786` devuelve sus datos |
 | 3 | `rag_tool.py` + `rag/ingest.py` + `rag/retriever.py` | Retrieval híbrido con citas |
 | 4 | `support_agent.py` + `policy_agent.py` | Cada agente responde de forma independiente |
@@ -411,7 +411,7 @@ AI-ASSISTANT-INSURANCE/
 
 - **Dos tools concretas** en lugar de N agentes complejos: `crm_tool` para datos estructurados, `rag_tool` para documentos. Simple y trazable.
 - **SQLite como CRM**: el CSV de Kaggle se carga una vez en SQLite. Las consultas SQL son verificables, no dependen del LLM.
-- **ChromaDB local**: sin infraestructura adicional para el prototipo. El vectorstore se persiste en `data/vectorstore/`.
+- **LanceDB local**: sin infraestructura adicional para el prototipo. El vectorstore se persiste en `data/vectorstore/`.
 - **EnsembleRetriever**: la búsqueda híbrida (dense + BM25) mejora recall sin añadir complejidad de infraestructura.
 - **Ownership check en el backend**: el LLM no valida pertenencia de recursos. La función `crm_tool` lo hace antes de ejecutar el SQL.
 - **Separación datos/instrucciones en prompts**: los fragmentos RAG siempre van en una sección delimitada `[CONTEXT]`, nunca mezclados con instrucciones del sistema.

@@ -15,7 +15,7 @@ Un usuario puede simular ser un cliente (ej. `BU79786`) y preguntarle al asisten
 | Fuente | Tipo | Uso |
 |---|---|---|
 | `AutoInsurance.csv` (Kaggle) | Datos estructurados. CSV cargado en SQLite | CRM simulado: consultar póliza, quejas abiertas, cobertura y tipo de vehículo por `Customer ID` |
-| PDFs operativos (Apex Shield Insurance) | Datos no estructurados. Indexados en ChromaDB | RAG: responder preguntas sobre procesos, coberturas y procedimientos de reclamos |
+| PDFs operativos (Apex Shield Insurance) | Datos no estructurados. Indexados en LanceDB | RAG: responder preguntas sobre procesos, coberturas y procedimientos de reclamos |
 
 El agente decide qué fuente consultar según la pregunta, usando **Tool Calling**.
 
@@ -90,10 +90,10 @@ AI-ASSISTANT-INSURANCE/
 │   │
 │   ├── tools/
 │   │   ├── crm_tool.py              ← Tool Calling hacia SQLite (AutoInsurance.csv)
-│   │   └── rag_tool.py              ← Tool Calling hacia ChromaDB (PDFs)
+│   │   └── rag_tool.py              ← Tool Calling hacia LanceDB (PDFs)
 │   │
 │   ├── rag/
-│   │   ├── ingest.py                ← carga PDFs, genera chunks y los indexa en ChromaDB
+│   │   ├── ingest.py                ← carga PDFs, genera chunks y los indexa en LanceDB
 │   │   └── retriever.py             ← EnsembleRetriever: dense + BM25
 │   │
 │   ├── memory/
@@ -119,7 +119,7 @@ AI-ASSISTANT-INSURANCE/
 │   ├── raw/                         ← 3 PDFs sintéticos de Apex Shield Insurance
 │   ├── synthetic/structured/
 │   │   └── AutoInsurance.csv        ← dataset Kaggle. CRM simulado
-│   └── vectorstore/                 ← índice ChromaDB persistido (generado en runtime)
+│   └── vectorstore/                 ← índice LanceDB persistido (generado en runtime)
 │
 ├── evaluation/
 │   ├── catalog/                     ← consultas legítimas + ataques (JSONL)
@@ -132,7 +132,7 @@ AI-ASSISTANT-INSURANCE/
 ├── tests/                           ← tests del sistema
 │
 └── scripts/
-    ├── index_documents.py           ← indexa los PDFs en ChromaDB
+    ├── index_documents.py           ← indexa los PDFs en LanceDB
     └── run_assistant.py             ← CLI interactivo del asistente
 ```
 
@@ -164,7 +164,7 @@ uv pip install -r requirements.txt
 cp .env.example .env
 # Editar .env con tu OPENAI_API_KEY
 
-# 5. Indexar PDFs en ChromaDB (primera vez)
+# 5. Indexar PDFs en LanceDB (primera vez)
 python scripts/index_documents.py
 
 # 6. Correr el asistente (CLI)
@@ -200,7 +200,7 @@ pytest tests/ -v
 | Framework LLM | LangChain |
 | LLM | OpenAI / modelo compatible |
 | Embeddings | BGE-M3 o equivalente |
-| Vector Store (RAG) | ChromaDB |
+| Vector Store (RAG) | LanceDB |
 | BD estructurada (CRM) | SQLite cargado desde `AutoInsurance.csv` |
 | Retrieval híbrido | Dense + BM25 (EnsembleRetriever) |
 | Memoria | SQLite + LangChain |

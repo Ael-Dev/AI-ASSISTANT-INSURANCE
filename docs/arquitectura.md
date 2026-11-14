@@ -12,7 +12,7 @@ El sistema implementa una arquitectura **Agentic RAG** con un orquestador centra
 | Agente | Tool | Fuente de datos |
 |---|---|---|
 | Support Agent | `crm_tool` | SQLite ← `AutoInsurance.csv` (CRM simulado) |
-| Policy Agent | `rag_tool` | ChromaDB ← 3 PDFs operativos (RAG híbrido) |
+| Policy Agent | `rag_tool` | LanceDB ← 3 PDFs operativos (RAG híbrido) |
 | Orchestrator | `get_session_state` | SQLite (memoria de sesión) |
 
 ---
@@ -33,10 +33,10 @@ flowchart TB
     POL["Policy Agent"]
 
     CRM_T["crm_tool\nTool Calling → SQL"]
-    RAG_T["rag_tool\nTool Calling → ChromaDB"]
+    RAG_T["rag_tool\nTool Calling → LanceDB"]
 
     SQLITE[("CRM Simulado\nAutoInsurance.csv → SQLite")]
-    CHROMA[("Vector Store\nChromaDB")]
+    CHROMA[("Vector Store\nLanceDB")]
     PDFS[("PDFs Operativos\n3 docs Apex Shield")]
 
     MEM[("Memory\nHistorial por session_id")]
@@ -86,14 +86,14 @@ flowchart TB
     POL["Policy Agent"]
 
     CRM_T["crm_tool\nTool Calling → SQL"]
-    RAG_T["rag_tool\nTool Calling → ChromaDB"]
+    RAG_T["rag_tool\nTool Calling → LanceDB"]
 
     OWN["🔴 Ownership Check\nvalidar customer_id\nde sesión vs BD"]
 
     CTX["🔴 Context Injection Risk\nfragmentos RAG tratados\ncomo datos, no instrucciones"]
 
     SQLITE[("CRM Simulado\nAutoInsurance.csv → SQLite")]
-    CHROMA[("Vector Store\nChromaDB")]
+    CHROMA[("Vector Store\nLanceDB")]
     PDFS[("PDFs Operativos\n3 docs Apex Shield")]
 
     MEM[("Memory\nHistorial por session_id")]
