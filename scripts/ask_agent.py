@@ -8,27 +8,28 @@ Uso interactivo: uv run python scripts/ask_agent.py
 import sys
 
 # Módulos del proyecto
-from src.agents.policy_agent import create_policy_agent
+from src.agents.policy_agent import ask_policy_agent, create_policy_agent
 from src.config.model_factory import create_default_embeddings
 from src.config.settings import get_settings
 from src.tools.rag_tool import build_rag_tool
 
 
 def print_agent_answer(agent, question: str) -> None:
-    """Enviar la pregunta al agente e imprimir las tools usadas y la respuesta."""
-    # El usuario solo envía la pregunta, nunca el contexto
-    result = agent.invoke({"messages": [{"role": "user", "content": question}]})
+    """Enviar la pregunta al agente e imprimir la respuesta con sus fuentes reales."""
+    # Invocar el agente y obtener la respuesta con las fuentes de la tool
+    answer = ask_policy_agent(agent, question, session_id="terminal")
 
-    # Imprimir la pregunta
+    # Imprimir la pregunta y la respuesta
     print(f"\nPREGUNTA: {question}")
+    print(f"\nRESPUESTA:\n{answer.answer}")
 
-    # Imprimir cada tool que el agente decidió llamar
-    for message in result["messages"]:
-        for tool_call in getattr(message, "tool_calls", []):
-            print(f"Tool llamada: {tool_call['name']} con {tool_call['args']}")
-
-    # Imprimir la respuesta final
-    print(f"\nRESPUESTA:\n{result['messages'][-1].content}")
+    # Imprimir las fuentes que la tool recuperó, no las que diga el modelo
+    print("\nFUENTES:")
+    # Avisar si el agente no consultó los manuales
+    if not answer.sources:
+        print("- Ninguna: el agente no recuperó fragmentos")
+    for source in answer.sources:
+        print(f"- {source}")
 
 
 def main() -> None:

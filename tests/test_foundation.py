@@ -142,3 +142,26 @@ def test_policy_prompt_uses_xml_sections():
 
     for tag in ("<role>", "<rules>", "<output_format>", "<source>"):
         assert tag in POLICY_AGENT_SYSTEM_PROMPT
+
+
+# Probar que las fuentes salen del artefacto de la tool y no del texto del modelo
+def test_sources_are_extracted_from_tool_artifacts():
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    from src.agents.policy_agent import extract_sources
+
+    # Simular una conversación donde el modelo inventa una fuente en su texto
+    messages = [
+        ToolMessage(
+            content="<sources></sources>",
+            tool_call_id="1",
+            artifact=[
+                {"document_name": "manual", "topic": "P4"},
+                {"document_name": "manual", "topic": "P4"},
+            ],
+        ),
+        AIMessage(content="Fuentes: documento inventado"),
+    ]
+
+    # Solo aparece la fuente real y sin repetir
+    assert extract_sources(messages) == ["manual | P4"]

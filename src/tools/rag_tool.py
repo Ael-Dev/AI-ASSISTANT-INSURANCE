@@ -50,13 +50,23 @@ def format_documents_as_sources(documents: list) -> str:
 def create_rag_tool(retriever: BaseRetriever) -> BaseTool:
     """Crea la tool sobre un retriever ya construido."""
 
-    # Registrar la función como tool de LangChain
-    @tool
+    # Registrar la función como tool y separar el texto para el modelo del artefacto para el sistema
+    @tool(response_format="content_and_artifact")
     # Tool que el agente puede invocar
-    def search_policy_documents(question: str) -> str:
+    def search_policy_documents(question: str) -> tuple[str, list[dict]]:
         """Busca en los manuales de la aseguradora procedimientos, coberturas, costos y reclamos."""
-        # Buscar y devolver fragmentos con fuente
-        return format_documents_as_sources(retriever.invoke(question))
+        # Buscar los fragmentos más relevantes
+        documents = retriever.invoke(question)
+        # Devolver el XML para el modelo y los metadatos reales para citar sin el modelo
+        return format_documents_as_sources(documents), [
+            {
+                "document_name": document.metadata.get("document_name", "desconocido"),
+                "topic": document.metadata.get("topic")
+                or document.metadata.get("subsection")
+                or document.metadata.get("section", ""),
+            }
+            for document in documents
+        ]
 
     # Devolver la tool creada
     return search_policy_documents

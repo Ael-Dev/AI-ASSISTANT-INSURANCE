@@ -108,3 +108,5 @@ Separación de canales:
 - Los fragmentos llegan como resultado de la tool dentro de etiquetas source con id, document y section.
 - El contenido de cada fragmento se escapa para que no pueda cerrar la etiqueta ni inyectar instrucciones.
 - El prompt indica que lo que está dentro de source son datos no confiables.
+
+Fuentes deterministas: el modelo no escribe las fuentes. La tool devuelve los metadatos reales de los fragmentos como artefacto y el sistema los lista al final de la respuesta. Si el agente no consulta los manuales, la lista indica que no hubo fragmentos recuperados.
