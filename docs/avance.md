@@ -5,7 +5,7 @@ Estado de la implementación por etapas del plan.
 | Etapa | Contenido | Estado |
 |---|---|---|
 | 1 Fundación | Configuración, esquemas, ingesta de CRM y base de conocimiento | Implementada en la rama feature/p1-foundation |
-| 2 RAG y CRM | Retriever híbrido, tools, memoria de sesión | Pendiente |
+| 2 RAG y CRM | Retriever híbrido y rag_tool implementados. Falta CRM y memoria de sesión | En progreso |
 | 3 Agentes y seguridad | Orquestador LangGraph, validadores, evaluación | Pendiente |
 | 4 Integración | Prueba de punta a punta y demo | Pendiente |
 
@@ -38,7 +38,7 @@ LLM_NAME=claude-sonnet-5-5
 ```mermaid
 flowchart LR
     CSV[AutoInsurance.csv] --> VAL[Validación Pydantic] --> SQL[(SQLite CRM)]
-    PDF[PDFs Apex Shield] --> MD[MarkItDown a Markdown] --> CH[Chunks] --> EMB[Embeddings] --> VEC[(ChromaDB)]
+    PDF[PDFs Apex Shield] --> MD[MarkItDown a Markdown] --> CH[Chunks] --> EMB[Embeddings] --> VEC[(LanceDB)]
 ```
 
 ### Cómo ejecutarlo
@@ -58,5 +58,28 @@ uv run pytest
 | Clientes cargados en SQLite | 9133 |
 | Filas descartadas por validación | 2 |
 | PDFs convertidos a Markdown | 3 |
-| Chunks indexados en ChromaDB | 59 |
-| Pruebas automáticas | 5 aprobadas |
+| Chunks indexados en LanceDB | 59 |
+| Pruebas automáticas | 6 aprobadas |
+
+## Etapa 2 RAG
+
+La base vectorial es LanceDB, local y sin servidor. Todo vive en las carpetas originales del proyecto.
+
+| Archivo | Función |
+|---|---|
+| src/rag/ingest.py | Chunking y carga en LanceDB |
+| src/rag/retriever.py | EnsembleRetriever con búsqueda semántica y BM25 |
+| src/tools/rag_tool.py | Tool que devuelve fragmentos con la fuente para citar |
+
+```mermaid
+flowchart LR
+    Q[Pregunta] --> D[Semántica LanceDB]
+    Q --> B[BM25]
+    D --> E[EnsembleRetriever] 
+    B --> E
+    E --> T[rag_tool con citas]
+```
+
+Los pesos y la cantidad de fragmentos se cambian con DENSE_WEIGHT, BM25_WEIGHT y RETRIEVAL_TOP_K.
+
+Nota técnica: la librería langchain-lancedb sobrescribe el metadato source, por eso el nombre del documento se guarda como document_name.

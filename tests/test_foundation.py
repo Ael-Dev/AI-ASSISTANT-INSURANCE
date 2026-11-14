@@ -6,11 +6,11 @@ import pytest
 from langchain_core.embeddings import DeterministicFakeEmbedding
 from pydantic import ValidationError
 
+from src.config.model_factory import create_embedding_model
 from src.config.settings import ModelProvider, ModelSettings, Settings
-from src.ingestion.crm_loader import read_customers_from_csv, write_customers_to_sqlite
-from src.ingestion.knowledge_base import rebuild_vector_store, split_markdown_into_chunks
-from src.models.model_factory import create_embedding_model
+from src.rag.ingest import rebuild_vector_store, split_markdown_into_chunks
 from src.schemas.query import UserQuery
+from src.tools.crm_loader import read_customers_from_csv, write_customers_to_sqlite
 
 
 def test_csv_loader_discards_invalid_rows_and_normalizes_dates(settings_for_tests):
@@ -47,10 +47,31 @@ def test_knowledge_base_is_built_with_fake_embeddings(settings_for_tests, tmp_pa
     )
 
     assert stored_count == len(chunks) > 1
-    assert chunks[0].metadata["source"] == "manual"
+    assert chunks[0].metadata["document_name"] == "manual"
 
 
 def test_embedding_factory_rejects_provider_without_embeddings():
     anthropic_settings = ModelSettings(provider=ModelProvider.ANTHROPIC, name="any")
     with pytest.raises(ValueError):
         create_embedding_model(anthropic_settings, Settings())
+
+
+def test_hybrid_retriever_and_tool_return_cited_fragments(settings_for_tests, tmp_path):
+    from src.rag.retriever import create_hybrid_retriever
+    from src.tools.rag_tool import create_rag_tool
+
+    markdown_path = tmp_path / "manual.md"
+    markdown_path.write_text(
+        "# Grúa\n\nEl banderazo de la grúa cuesta 75 dólares.\n\n"
+        "# Pintura\n\nLa pintura se cobra por panel pintado.",
+        encoding="utf-8",
+    )
+    embeddings = DeterministicFakeEmbedding(size=16)
+    chunks = split_markdown_into_chunks([markdown_path], settings_for_tests)
+    rebuild_vector_store(chunks, embeddings, settings_for_tests)
+
+    retriever = create_hybrid_retriever(embeddings, settings_for_tests)
+    tool_answer = create_rag_tool(retriever).invoke({"question": "banderazo grúa"})
+
+    assert "[Fuente: manual]" in tool_answer
+    assert "banderazo" in tool_answer
