@@ -58,7 +58,7 @@ uv run pytest
 | Clientes cargados en SQLite | 9133 |
 | Filas descartadas por validación | 2 |
 | PDFs convertidos a Markdown | 3 |
-| Chunks indexados en LanceDB | 59 |
+| Chunks indexados en LanceDB | 132 |
 | Pruebas automáticas | 6 aprobadas |
 
 ## Etapa 2 RAG
@@ -69,6 +69,7 @@ La base vectorial es LanceDB, local y sin servidor. Todo vive en las carpetas or
 |---|---|
 | src/rag/ingest.py | Chunking y carga en LanceDB |
 | src/rag/retriever.py | EnsembleRetriever con búsqueda semántica y BM25 |
+| src/rag/reranker.py | Reranker local que ordena los candidatos |
 | src/tools/rag_tool.py | Tool que devuelve fragmentos con la fuente para citar |
 
 ```mermaid
@@ -84,5 +85,7 @@ flowchart LR
 Los pesos y la cantidad de fragmentos se cambian con DENSE_WEIGHT y BM25_WEIGHT. Los candidatos antes del reranking se definen con RETRIEVAL_CANDIDATES_K y los que se devuelven después con RERANK_TOP_K.
 
 Reranker: jina-reranker-v2-base-multilingual, local, con 4 hilos de CPU para no competir con el LLM. Se eligió frente a bge-reranker-v2-m3 porque acertó igual en las pruebas y fue el doble de rápido.
+
+Chunking: los títulos de los PDFs se recuperan como encabezados para que cada pregunta o subsección quede completa en un fragmento.
 
 Nota técnica: la librería langchain-lancedb sobrescribe el metadato source, por eso el nombre del documento se guarda como document_name.

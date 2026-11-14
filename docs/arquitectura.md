@@ -36,7 +36,7 @@ flowchart TB
     RAG_T["rag_tool\nTool Calling → LanceDB"]
 
     SQLITE[("CRM Simulado\nAutoInsurance.csv → SQLite")]
-    CHROMA[("Vector Store\nLanceDB")]
+    VECTOR[("Vector Store\nLanceDB")]
     PDFS[("PDFs Operativos\n3 docs Apex Shield")]
 
     MEM[("Memory\nHistorial por session_id")]
@@ -56,8 +56,8 @@ flowchart TB
     CRM_T --> SQLITE
 
     POL --> RAG_T
-    RAG_T --> CHROMA
-    CHROMA -.->|"indexado"| PDFS
+    RAG_T --> VECTOR
+    VECTOR -.->|"indexado"| PDFS
 
     SUPP --> RESP
     POL --> RESP
@@ -93,7 +93,7 @@ flowchart TB
     CTX["🔴 Context Injection Risk\nfragmentos RAG tratados\ncomo datos, no instrucciones"]
 
     SQLITE[("CRM Simulado\nAutoInsurance.csv → SQLite")]
-    CHROMA[("Vector Store\nLanceDB")]
+    VECTOR[("Vector Store\nLanceDB")]
     PDFS[("PDFs Operativos\n3 docs Apex Shield")]
 
     MEM[("Memory\nHistorial por session_id")]
@@ -125,8 +125,8 @@ flowchart TB
 
     POL --> CTX
     CTX --> RAG_T
-    RAG_T --> CHROMA
-    CHROMA -.->|"indexado"| PDFS
+    RAG_T --> VECTOR
+    VECTOR -.->|"indexado"| PDFS
 
     SUPP --> OF
     POL --> OF
@@ -167,6 +167,7 @@ Ver análisis completo en [`modelo-de-amenazas.md`](modelo-de-amenazas.md) y [`c
 
 - **Dos tools concretas** (`crm_tool` + `rag_tool`) en lugar de múltiples agentes complejos: simple, trazable y suficiente para el scope del proyecto.
 - **SQLite como CRM**: el CSV de Kaggle se carga una vez. Las consultas SQL son deterministas, verificables y no dependen del LLM.
-- **EnsembleRetriever**: combina búsqueda semántica (dense) + keyword (BM25) para mejor recall sin infraestructura adicional.
+- **EnsembleRetriever y reranker**: combina búsqueda semántica y BM25, y un reranker local ordena los candidatos.
+- **Modelos intercambiables**: llm, judge y embedding cambian por variable de entorno.
 - **Ownership check en el backend**: la validación de pertenencia de recursos nunca la hace el LLM.
 - **Separación datos/instrucciones**: fragmentos RAG siempre en sección `[CONTEXT]` delimitada, nunca mezclados con instrucciones del sistema.
