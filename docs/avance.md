@@ -60,9 +60,9 @@ uv run pytest
 |---|---|
 | Clientes cargados en SQLite | 9133 |
 | Filas descartadas por validación | 2 |
-| PDFs convertidos a Markdown | 3 |
-| Chunks indexados en LanceDB | 132 |
-| Pruebas automáticas | 6 aprobadas |
+| PDFs convertidos a Markdown | 2 |
+| Chunks indexados en LanceDB | 227 |
+| Pruebas automáticas | 10 aprobadas |
 
 ## Etapa 2 RAG
 
@@ -99,7 +99,7 @@ Grafo de LangGraph con tres pasos fijos. El modelo no decide si consulta el RAG.
 
 ```mermaid
 flowchart LR
-    Q[Pregunta] --> R[Reformular con Pydantic]
+    Q[Pregunta] --> R[Separar solo si es compuesta]
     R --> T[Consultar el RAG siempre]
     T --> G[Responder con Pydantic]
     G --> S[Validar fuentes usadas]
@@ -107,8 +107,8 @@ flowchart LR
 
 | Paso | Detalle |
 |---|---|
-| Reformular | El modelo devuelve un SearchPlan con una consulta, o dos si la pregunta es compuesta |
-| Consultar | La tool recibe las consultas, une los fragmentos sin repetir y los entrega como resultado de tool en etiquetas source con id |
+| Separar | La pregunta va tal cual al RAG. Solo si es compuesta, el modelo la separa en máximo 2 consultas con un SearchPlan |
+| Consultar | La tool reparte los lugares por turnos entre las consultas, entrega 5 fragmentos sin repetir como resultado de tool en etiquetas source con id |
 | Responder | El modelo devuelve un PolicyAnswer con la respuesta y los ids de las fuentes que usó |
 | Validar | El sistema descarta los ids que no existen y muestra solo las fuentes declaradas y válidas |
 

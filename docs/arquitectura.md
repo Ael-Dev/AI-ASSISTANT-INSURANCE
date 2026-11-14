@@ -12,7 +12,7 @@ El sistema implementa una arquitectura **Agentic RAG** con un orquestador centra
 | Agente | Tool | Fuente de datos |
 |---|---|---|
 | Support Agent | `crm_tool` | SQLite ← `AutoInsurance.csv` (CRM simulado) |
-| Policy Agent | `rag_tool` | LanceDB ← 3 PDFs operativos (RAG híbrido) |
+| Policy Agent | `rag_tool` | LanceDB ← 2 PDFs operativos (RAG híbrido) |
 | Orchestrator | `get_session_state` | SQLite (memoria de sesión) |
 
 ---
