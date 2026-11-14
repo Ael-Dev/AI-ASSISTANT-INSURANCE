@@ -225,7 +225,7 @@ sequenceDiagram
 ### 6.1 Datos estructurados: CRM simulado
 
 **Archivo:** `data/synthetic/structured/AutoInsurance.csv` (Kaggle. Auto Insurance Dataset)  
-**Cargado en:** SQLite al iniciar el sistema (`scripts/index_documents.py`)
+**Cargado en:** SQLite al iniciar el sistema (`scripts/index_crm.py`)
 
 Columnas clave que usa el sistema:
 
@@ -374,7 +374,8 @@ AI-ASSISTANT-INSURANCE/
 │   └── vectorstore/               ← generado: LanceDB
 │
 ├── scripts/
-│   ├── index_documents.py         ← ingesta completa del CRM y la base de conocimiento
+│   ├── index_crm.py               ← carga el CSV en SQLite
+│   ├── index_knowledge_base.py    ← PDFs a Markdown, embeddings y LanceDB
 │   ├── ask_rag.py                 ← prueba del RAG por terminal
 │   ├── query_crm.py               ← prueba del CRM por terminal
 │   └── run_assistant.py           ← pendiente: CLI del asistente
@@ -391,7 +392,7 @@ AI-ASSISTANT-INSURANCE/
 
 | Fase | Qué se construye | Resultado verificable | Estado |
 |---|---|---|---|
-| 1 | `scripts/index_documents.py`. cargar CSV en SQLite + PDFs en LanceDB | BD y vectorstore listos | Hecha |
+| 1 | `scripts/index_crm.py` y `scripts/index_knowledge_base.py`. CSV en SQLite y PDFs en LanceDB, por separado | BD y vectorstore listos | Hecha |
 | 2 | `crm_tool.py`. consulta por `customer_id` con validación de ownership | Consulta `BU79786` devuelve sus datos | Pendiente |
 | 3 | `rag_tool.py` + `rag/ingest.py` + `rag/retriever.py` | Retrieval híbrido con citas | Hecha |
 | 4 | `support_agent.py` + `policy_agent.py` | Cada agente responde de forma independiente | Pendiente |

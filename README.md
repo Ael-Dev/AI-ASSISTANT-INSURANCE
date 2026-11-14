@@ -103,17 +103,20 @@ cp .env.example .env
 # 3. Modelo de embeddings local
 ollama pull bge-m3
 
-# 4. Ingesta: CSV a SQLite y PDFs a LanceDB
-uv run python scripts/index_documents.py
+# 4. Cargar el CRM en SQLite
+uv run python scripts/index_crm.py
 
-# 5. Probar el RAG y el CRM
+# 5. Construir la base de conocimiento con embeddings
+uv run python scripts/index_knowledge_base.py
+
+# 6. Probar el RAG y el CRM
 uv run python scripts/ask_rag.py "¿Cuánto cuesta la grúa por kilómetro adicional?"
 uv run python scripts/query_crm.py BU79786
 
-# 6. Pruebas
+# 7. Pruebas
 uv run pytest
 
-# 7. Documentación local
+# 8. Documentación local
 uv run --group docs mkdocs serve
 ```
 

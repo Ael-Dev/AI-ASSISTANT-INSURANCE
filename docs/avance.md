@@ -35,6 +35,8 @@ LLM_NAME=claude-sonnet-5-5
 
 ### Flujo de ingesta
 
+Son dos scripts independientes. index_crm.py carga SQLite e index_knowledge_base.py construye los embeddings.
+
 ```mermaid
 flowchart LR
     CSV[AutoInsurance.csv] --> VAL[Validación Pydantic] --> SQL[(SQLite CRM)]
@@ -47,7 +49,8 @@ flowchart LR
 uv sync
 cp .env.example .env
 ollama pull bge-m3
-uv run python scripts/index_documents.py
+uv run python scripts/index_crm.py
+uv run python scripts/index_knowledge_base.py
 uv run pytest
 ```
 
