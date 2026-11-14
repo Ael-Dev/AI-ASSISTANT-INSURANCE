@@ -20,7 +20,7 @@ Bienvenido a la documentación del proyecto **AI Assistant Insurance**, un asist
 
 ## Diseño técnico completo
 
-Ver [`AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md`](../AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md) para la arquitectura detallada del sistema, incluyendo:
+Ver [`AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md`](https://github.com/Ael-Dev/AI-ASSISTANT-INSURANCE/blob/main/AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md) para la arquitectura detallada del sistema, incluyendo:
 
 - Flujo multiagente con LangGraph
 - Pipeline RAG híbrido (dense + sparse)
@@ -32,6 +32,6 @@ Ver [`AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md`](../AI-ASSISTANT-INSUR
 
 ---
 
-## Plan de trabajo
+## Avance
 
-Ver [`PLANIFICACION-EQUIPO.md`](../PLANIFICACION-EQUIPO.md) para historias de usuario, tareas y distribución entre los 4 integrantes del equipo.
+Ver [Avance](avance.md) para el estado de cada etapa.

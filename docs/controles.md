@@ -55,7 +55,7 @@ def get_customer_data(customer_id: str, session: SessionState) -> CustomerData:
 **Nodo en diagrama:** `🔴 Context Injection Risk`  
 **Módulos:** `src/rag/retriever.py` + `src/prompts/system_prompts.py`
 
-Los fragmentos recuperados de ChromaDB se insertan en el prompt en una sección claramente delimitada como **datos**, nunca como instrucciones del sistema:
+Los fragmentos recuperados de LanceDB se insertan en el prompt en una sección claramente delimitada como **datos**, nunca como instrucciones del sistema:
 
 ```
 [SYSTEM]

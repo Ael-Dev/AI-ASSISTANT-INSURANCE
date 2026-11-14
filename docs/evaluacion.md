@@ -25,7 +25,7 @@ Todos los datasets son sintéticos; no se usan datos personales reales.
 |---|---|
 | Recall@5 | ¿El fragmento correcto aparece en los top-5? |
 | Faithfulness (RAGAS) | ¿La respuesta se apoya en los fragmentos recuperados? |
-| Citation precision | ¿La cita (documento + página) es correcta? |
+| Citation precision | ¿La cita (documento y sección) es correcta? |
 | Abstention rate | ¿El agente se abstiene cuando no hay evidencia? |
 
 ### CRM: Support Agent

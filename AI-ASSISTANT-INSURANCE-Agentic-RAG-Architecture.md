@@ -22,7 +22,7 @@ El agente decide qué fuente consultar según la intención:
 | Intención | Fuente | Tool |
 |---|---|---|
 | Datos del cliente / póliza específica | `AutoInsurance.csv` → SQLite | `crm_tool` |
-| Coberturas, exclusiones, procedimientos | 3 PDFs operativos → ChromaDB | `rag_tool` |
+| Coberturas, exclusiones, procedimientos | 3 PDFs operativos → LanceDB | `rag_tool` |
 | Ambas | Consulta ambas y sintetiza | Ambas tools |
 
 **Límite:** el asistente es orientativo. No aprueba reclamos, no modifica pólizas, no toma decisiones contractuales.
@@ -57,10 +57,10 @@ flowchart TB
     POL["Policy Agent"]
 
     CRM_T["crm_tool\nTool Calling → SQL"]
-    RAG_T["rag_tool\nTool Calling → ChromaDB"]
+    RAG_T["rag_tool\nTool Calling → LanceDB"]
 
     SQLITE[("CRM Simulado\nAutoInsurance.csv\n→ SQLite")]
-    CHROMA[("Vector Store\nChromaDB")]
+    VECTOR[("Vector Store\nLanceDB")]
     PDFS[("PDFs Operativos\n3 documentos\nApex Shield Insurance")]
 
     MEM[("Memory\nHistorial por session_id")]
@@ -80,8 +80,8 @@ flowchart TB
     CRM_T --> SQLITE
 
     POL --> RAG_T
-    RAG_T --> CHROMA
-    CHROMA -.->|"indexado"| PDFS
+    RAG_T --> VECTOR
+    VECTOR -.->|"indexado"| PDFS
 
     SUPP --> RESP
     POL --> RESP
@@ -111,14 +111,14 @@ flowchart TB
     POL["Policy Agent"]
 
     CRM_T["crm_tool\nTool Calling → SQL"]
-    RAG_T["rag_tool\nTool Calling → ChromaDB"]
+    RAG_T["rag_tool\nTool Calling → LanceDB"]
 
     OWN["🔴 Ownership Check\nvalidar customer_id\nde sesión vs BD"]
 
     CTX["🔴 Context Injection Risk\nfragmentos RAG tratados\ncomo datos, no instrucciones"]
 
     SQLITE[("CRM Simulado\nAutoInsurance.csv → SQLite")]
-    CHROMA[("Vector Store\nChromaDB")]
+    VECTOR[("Vector Store\nLanceDB")]
     PDFS[("PDFs Operativos\n3 docs Apex Shield")]
 
     MEM[("Memory\nHistorial por session_id")]
@@ -150,8 +150,8 @@ flowchart TB
 
     POL --> CTX
     CTX --> RAG_T
-    RAG_T --> CHROMA
-    CHROMA -.->|"indexado"| PDFS
+    RAG_T --> VECTOR
+    VECTOR -.->|"indexado"| PDFS
 
     SUPP --> OF
     POL --> OF
@@ -195,7 +195,7 @@ sequenceDiagram
     participant S as Support Agent
     participant P as Policy Agent
     participant DB as SQLite (CRM)
-    participant V as ChromaDB (RAG)
+    participant V as LanceDB (RAG)
 
     User->>UI: "¿Cuántas quejas abiertas tengo?"
     UI->>O: mensaje + session_id
@@ -212,7 +212,7 @@ sequenceDiagram
     O->>O: detectar intención → consulta RAG
     O->>P: consultar cobertura por robo
     P->>V: búsqueda híbrida: "cobertura robo auto"
-    V-->>P: fragmentos + fuente + página
+    V-->>P: fragmentos + documento + sección
     P-->>O: respuesta con cita [Manual, pág. 12]
     O-->>UI: respuesta con evidencia citada
     UI-->>User: "Según el Manual Operativo (pág. 12)..."
@@ -243,7 +243,7 @@ Columnas clave que usa el sistema:
 ### 6.2 Datos no estructurados: RAG
 
 **Ubicación:** `data/raw/`  
-**Indexados en:** ChromaDB (`data/vectorstore/`)
+**Indexados en:** LanceDB (`data/vectorstore/`)
 
 | Documento | Contenido |
 |---|---|
@@ -255,11 +255,12 @@ Columnas clave que usa el sistema:
 
 ```
 PDF (data/raw/)
-  → PyPDF loader
-  → Chunking por secciones (500–800 tokens, 100 de overlap)
-  → Metadata: {source, page, section}
-  → Embedding (BGE-M3 o text-embedding-3-small)
-  → ChromaDB (data/vectorstore/)
+  → MarkItDown a Markdown (data/processed/markdown/)
+  → Recuperar títulos (SECCIÓN, N.N, P#) como encabezados
+  → Chunking por encabezados y luego RecursiveCharacterTextSplitter (1500 caracteres, 150 de overlap)
+  → Metadata: {document_name, section, subsection, topic}
+  → Embedding local con Ollama (bge-m3, configurable)
+  → LanceDB (data/vectorstore/)
 ```
 
 **Retrieval híbrido:**
@@ -267,11 +268,12 @@ PDF (data/raw/)
 ```
 Consulta del usuario
   → EnsembleRetriever
-      ├── Dense search (ChromaDB: semántico)
+      ├── Dense search (LanceDB: semántico)
       └── BM25 (keyword: exacto)
+  → Reranker local (jina-reranker-v2-base-multilingual)
   → Top-K fragmentos
   → Prompt con fragmentos como contexto [DATOS, no instrucciones]
-  → LLM genera respuesta con cita de fuente + página
+  → LLM genera respuesta con cita de documento y sección
 ```
 
 ---
@@ -281,7 +283,7 @@ Consulta del usuario
 | Tool | Agente que la usa | Qué hace | Implementación |
 |---|---|---|---|
 | `crm_tool` | Support Agent | Consulta SQLite: datos del cliente por `customer_id` | `src/tools/crm_tool.py` |
-| `rag_tool` | Policy Agent | Busca en ChromaDB: fragmentos relevantes de los PDFs | `src/tools/rag_tool.py` |
+| `rag_tool` | Policy Agent | Busca en LanceDB: fragmentos relevantes de los PDFs | `src/tools/rag_tool.py` |
 | `get_session_state` | Orchestrator | Recupera historial y estado de la sesión actual | `src/memory/session.py` |
 
 **Regla de seguridad:** el LLM propone qué tool llamar y con qué argumentos. El backend valida customer_id, permisos y tipos antes de ejecutar. El LLM nunca accede directamente a la BD.
@@ -321,85 +323,88 @@ Ver detalle en [`docs/controles.md`](docs/controles.md) y [`docs/modelo-de-amena
 |---|---|
 | Orquestación de agentes | LangGraph |
 | Framework LLM | LangChain |
-| LLM | OpenAI GPT-4o-mini / compatible |
-| Embeddings | BGE-M3 o `text-embedding-3-small` |
-| Vector Store (RAG) | ChromaDB |
+| LLM y juez | Intercambiable por variable: Ollama, OpenRouter, Gemini, Grok o Claude |
+| Embeddings | Ollama local con `bge-m3`. También Gemini u OpenRouter |
+| Reranker | `jina-reranker-v2-base-multilingual` local con fastembed |
+| Conversión de PDF | MarkItDown |
+| API | FastAPI (pendiente) |
+| Vector Store (RAG) | LanceDB |
 | BD estructurada (CRM) | SQLite ← `AutoInsurance.csv` |
-| Retrieval híbrido | Dense + BM25 (EnsembleRetriever) |
+| Retrieval híbrido | Dense + BM25 (EnsembleRetriever) y reranking |
 | Memoria de sesión | SQLite + LangChain |
-| Guardrails / PII | Presidio + validators propios |
+| Guardrails / PII | Presidio + validators propios (pendiente) |
 | Trazabilidad | logs estructurados locales |
 | Gestor de paquetes | uv |
 
 ---
 
-## 11. Estructura del proyecto (real)
+## 11. Estructura del proyecto
+
+Los archivos marcados como pendiente existen vacíos y se implementan en las etapas siguientes.
 
 ```
 AI-ASSISTANT-INSURANCE/
 │
 ├── src/
-│   ├── agents/
-│   │   ├── orchestrator.py        ← grafo LangGraph: detecta intención, enruta
-│   │   ├── support_agent.py       ← consulta CRM (crm_tool)
-│   │   └── policy_agent.py        ← consulta PDFs (rag_tool) + citas
+│   ├── agents/                    ← pendiente: orchestrator, support_agent, policy_agent
 │   ├── tools/
-│   │   ├── crm_tool.py            ← SELECT sobre SQLite (AutoInsurance.csv)
-│   │   └── rag_tool.py            ← EnsembleRetriever sobre ChromaDB
+│   │   ├── crm_loader.py          ← CSV validado con Pydantic a SQLite
+│   │   ├── crm_tool.py            ← pendiente: SELECT con ownership check
+│   │   └── rag_tool.py            ← tool de búsqueda con citas
 │   ├── rag/
-│   │   ├── ingest.py              ← carga PDFs → chunks → ChromaDB
-│   │   └── retriever.py           ← EnsembleRetriever: dense + BM25
-│   ├── memory/
-│   │   └── session.py             ← historial por session_id (SQLite)
-│   ├── security/
-│   │   ├── guardrails/
-│   │   │   └── output_filter.py   ← DLP + filtro de PII en respuesta
-│   │   └── validators/
-│   │       └── input_validator.py ← anti-injection + ownership check
+│   │   ├── document_converter.py  ← PDF a Markdown con MarkItDown
+│   │   ├── ingest.py              ← chunking y carga en LanceDB
+│   │   ├── retriever.py           ← EnsembleRetriever: dense + BM25
+│   │   └── reranker.py            ← reranker cross-encoder local
+│   ├── memory/                    ← pendiente: session.py
+│   ├── security/                  ← pendiente: input_validator, output_filter
 │   ├── schemas/
 │   │   ├── customer.py            ← Pydantic: campos de AutoInsurance.csv
-│   │   └── query.py               ← Pydantic: consulta entrante
-│   ├── prompts/
-│   │   └── system_prompts.py      ← templates con separación datos/instrucciones
+│   │   └── query.py               ← Pydantic: consulta y respuesta
+│   ├── prompts/                   ← pendiente: prompts gestionados
 │   └── config/
-│       └── settings.py            ← variables de entorno centralizadas
+│       ├── settings.py            ← variables de entorno centralizadas
+│       └── model_factory.py       ← modelos llm, judge y embedding por proveedor
 │
 ├── data/
 │   ├── raw/                       ← 3 PDFs Apex Shield Insurance
 │   ├── synthetic/structured/
 │   │   └── AutoInsurance.csv      ← CRM simulado (Kaggle)
-│   └── vectorstore/               ← ChromaDB persistido
+│   ├── processed/                 ← generado: crm.db, Markdown y modelo reranker
+│   └── vectorstore/               ← generado: LanceDB
 │
 ├── scripts/
-│   ├── index_documents.py         ← indexa PDFs + carga CSV en SQLite
-│   └── run_assistant.py           ← CLI interactivo
+│   ├── index_documents.py         ← ingesta completa del CRM y la base de conocimiento
+│   ├── ask_rag.py                 ← prueba del RAG por terminal
+│   ├── query_crm.py               ← prueba del CRM por terminal
+│   └── run_assistant.py           ← pendiente: CLI del asistente
 │
-├── evaluation/                    ← catálogo, resultados, notebook Colab
-├── logs/attack_runs/              ← registros de corridas de seguridad
 ├── tests/
-└── docs/                          ← 7 entregables académicos
+├── docs/                          ← entregables académicos y avance
+├── mkdocs.yml                     ← sitio de documentación
+└── .github/workflows/docs.yml     ← publicación en GitHub Pages
 ```
 
 ---
 
 ## 12. Orden de implementación
 
-| Fase | Qué se construye | Resultado verificable |
-|---|---|---|
-| 1 | `scripts/index_documents.py`. cargar CSV en SQLite + PDFs en ChromaDB | BD y vectorstore listos |
-| 2 | `crm_tool.py`. consulta por `customer_id` con validación de ownership | Consulta `BU79786` devuelve sus datos |
-| 3 | `rag_tool.py` + `rag/ingest.py` + `rag/retriever.py` | Retrieval híbrido con citas |
-| 4 | `support_agent.py` + `policy_agent.py` | Cada agente responde de forma independiente |
-| 5 | `orchestrator.py`. LangGraph con enrutamiento y `session.py` | Flujo completo: detecta intención → enruta → responde |
-| 6 | `input_validator.py` + `output_filter.py` | Guardrails activos en entrada y salida |
-| 7 | Evaluación: dataset de preguntas + catálogo de ataques | Métricas de retrieval + seguridad |
+| Fase | Qué se construye | Resultado verificable | Estado |
+|---|---|---|---|
+| 1 | `scripts/index_documents.py`. cargar CSV en SQLite + PDFs en LanceDB | BD y vectorstore listos | Hecha |
+| 2 | `crm_tool.py`. consulta por `customer_id` con validación de ownership | Consulta `BU79786` devuelve sus datos | Pendiente |
+| 3 | `rag_tool.py` + `rag/ingest.py` + `rag/retriever.py` | Retrieval híbrido con citas | Hecha |
+| 4 | `support_agent.py` + `policy_agent.py` | Cada agente responde de forma independiente | Pendiente |
+| 5 | `orchestrator.py`. LangGraph con enrutamiento y `session.py` | Flujo completo: detecta intención → enruta → responde | Pendiente |
+| 6 | `input_validator.py` + `output_filter.py` | Guardrails activos en entrada y salida | Pendiente |
+| 7 | Evaluación: dataset de preguntas + catálogo de ataques | Métricas de retrieval + seguridad | Pendiente |
 
 ---
 
 ## 13. Criterios de aceptación del MVP
 
 - El cliente `BU79786` puede preguntar por sus datos y el sistema los devuelve correctamente desde SQLite
-- El sistema responde preguntas de cobertura con cita de documento + página
+- El sistema responde preguntas de cobertura con cita de documento y sección
 - Si no hay evidencia en los PDFs, se abstiene y lo indica
 - No devuelve datos de un cliente diferente al de la sesión activa
 - Los fragmentos RAG no pueden manipular el comportamiento del LLM
@@ -411,8 +416,9 @@ AI-ASSISTANT-INSURANCE/
 
 - **Dos tools concretas** en lugar de N agentes complejos: `crm_tool` para datos estructurados, `rag_tool` para documentos. Simple y trazable.
 - **SQLite como CRM**: el CSV de Kaggle se carga una vez en SQLite. Las consultas SQL son verificables, no dependen del LLM.
-- **ChromaDB local**: sin infraestructura adicional para el prototipo. El vectorstore se persiste en `data/vectorstore/`.
-- **EnsembleRetriever**: la búsqueda híbrida (dense + BM25) mejora recall sin añadir complejidad de infraestructura.
+- **LanceDB local**: sin infraestructura adicional para el prototipo. El vectorstore se persiste en `data/vectorstore/`.
+- **EnsembleRetriever y reranker**: la búsqueda híbrida mejora el recall y un reranker local pequeño ordena los candidatos sin cargar el equipo.
+- **Modelos intercambiables**: llm, judge y embedding se eligen por variables de entorno. Cambiar de local a pago no toca el código.
 - **Ownership check en el backend**: el LLM no valida pertenencia de recursos. La función `crm_tool` lo hace antes de ejecutar el SQL.
 - **Separación datos/instrucciones en prompts**: los fragmentos RAG siempre van en una sección delimitada `[CONTEXT]`, nunca mezclados con instrucciones del sistema.
 - **Human-in-the-loop como regla determinista**: si la confianza del agente es baja o el caso es ambiguo, escala. No depende del LLM para esta decisión.

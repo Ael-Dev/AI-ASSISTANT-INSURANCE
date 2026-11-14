@@ -50,3 +50,6 @@ htmlcov/
 
 # mypy
 .mypy_cache/
+
+# MkDocs
+site/
