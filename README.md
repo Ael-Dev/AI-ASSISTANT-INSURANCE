@@ -39,8 +39,7 @@ El agente decide qué fuente consultar según la pregunta, usando **Tool Calling
 data/
 ├── raw/                          ← documentos PDF fuente del RAG
 │   ├── Manual Completo de Manejo de Reclamaciones y FAQ...pdf
-│   ├── Manual Operativo de Políticas y Procedimientos...pdf
-│   └── Tabla de Costos y Procedimientos Operativos...pdf
+│   └── Manual Operativo de Políticas y Procedimientos...pdf
 │
 └── synthetic/
     └── structured/
@@ -94,6 +93,8 @@ docs/           ← documentación publicada con MkDocs
 
 Requisitos: Python 3.12 o superior, [uv](https://docs.astral.sh/uv/) y [Ollama](https://ollama.com)
 
+El archivo `.env` no se sube al repositorio. Quien clone el proyecto copia `.env.example`, que ya trae los valores por defecto funcionales. El modelo reranker se descarga solo la primera vez (1.1 GB).
+
 ```bash
 # 1. Dependencias
 uv sync
@@ -101,8 +102,9 @@ uv sync
 # 2. Variables de entorno
 cp .env.example .env
 
-# 3. Modelo de embeddings local
+# 3. Modelos locales en Ollama: embeddings y LLM
 ollama pull bge-m3
+ollama pull 4skl/gemma4-e2b-mtp:latest
 
 # 4. Cargar el CRM en SQLite
 uv run python scripts/index_crm.py
@@ -135,6 +137,7 @@ Los modelos se cambian solo con variables. Proveedores: `ollama`, `openrouter`, 
 | `LLM_PROVIDER`, `LLM_NAME` | Modelo principal |
 | `JUDGE_PROVIDER`, `JUDGE_NAME` | Modelo juez |
 | `EMBEDDING_PROVIDER`, `EMBEDDING_NAME` | Modelo de embeddings |
+| `LLM_MAX_OUTPUT_TOKENS`, `LLM_REASONING` | Tokens máximos de salida y thinking. Dejar el thinking en false |
 | `CHUNK_SIZE`, `CHUNK_OVERLAP` | Tamaño y solape de los chunks. Reindexar al cambiarlos |
 | `RETRIEVAL_CANDIDATES_K` | Candidatos por método antes del reranking |
 | `RERANK_TOP_K` | Fragmentos devueltos después del reranking, 5 por defecto |

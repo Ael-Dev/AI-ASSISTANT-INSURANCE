@@ -22,7 +22,7 @@ El agente decide qué fuente consultar según la intención:
 | Intención | Fuente | Tool |
 |---|---|---|
 | Datos del cliente / póliza específica | `AutoInsurance.csv` → SQLite | `crm_tool` |
-| Coberturas, exclusiones, procedimientos | 3 PDFs operativos → LanceDB | `rag_tool` |
+| Coberturas, exclusiones, procedimientos | 2 PDFs operativos → LanceDB | `rag_tool` |
 | Ambas | Consulta ambas y sintetiza | Ambas tools |
 
 **Límite:** el asistente es orientativo. No aprueba reclamos, no modifica pólizas, no toma decisiones contractuales.
@@ -249,7 +249,6 @@ Columnas clave que usa el sistema:
 |---|---|
 | `Manual Completo de Manejo de Reclamaciones y FAQ...pdf` | FAQs, proceso de reclamos, plazos |
 | `Manual Operativo de Políticas y Procedimientos...pdf` | Coberturas, exclusiones, condiciones |
-| `Tabla de Costos y Procedimientos Operativos...pdf` | Deducibles, tarifas, requisitos por tipo de siniestro |
 
 **Pipeline de ingestión:**
 
@@ -369,7 +368,7 @@ AI-ASSISTANT-INSURANCE/
 │       └── model_factory.py       ← modelos llm, judge y embedding por proveedor
 │
 ├── data/
-│   ├── raw/                       ← 3 PDFs Apex Shield Insurance
+│   ├── raw/                       ← 2 PDFs Apex Shield Insurance
 │   ├── synthetic/structured/
 │   │   └── AutoInsurance.csv      ← CRM simulado (Kaggle)
 │   ├── processed/                 ← generado: crm.db, Markdown y modelo reranker
