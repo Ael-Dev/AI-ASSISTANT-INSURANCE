@@ -1,40 +1,24 @@
 """Recuperación híbrida: búsqueda semántica en LanceDB más BM25 por palabras clave."""
 
-# Lectura de metadatos guardados como texto
+# Librería estándar
 import json
 
-# Cliente directo de LanceDB
+# Librerías externas
 import lancedb
-
-# Combina varios retrievers con pesos
 from langchain_classic.retrievers import EnsembleRetriever
-
-# Tipo de callback que exige LangChain
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
-
-# Tipo de fragmento con texto y metadatos
 from langchain_core.documents import Document
-
-# Tipo base de los modelos de embeddings
 from langchain_core.embeddings import Embeddings
-
-# Clase base de los retrievers
 from langchain_core.retrievers import BaseRetriever
-
-# Configuración de modelos Pydantic
 from pydantic import ConfigDict
-
-# Algoritmo BM25 de palabras clave
 from rank_bm25 import BM25Okapi
 
-# Configuración del proyecto
+# Módulos del proyecto
 from src.config.settings import Settings
-
-# Abre la base vectorial
 from src.rag.ingest import open_vector_store
 
 
-# Convierte un texto en palabras
+# Convertir un texto en palabras
 def tokenize_text(text: str) -> list[str]:
     """Tokenización simple en minúsculas para BM25."""
     # Minúsculas y separación por espacios
@@ -45,7 +29,7 @@ def tokenize_text(text: str) -> list[str]:
 class BM25DocumentRetriever(BaseRetriever):
     """Retriever por palabras clave sobre una lista fija de documentos."""
 
-    # Permite usar el tipo BM25Okapi como campo
+    # Permitir usar el tipo BM25Okapi como campo
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     # Fragmentos donde se busca
@@ -59,31 +43,31 @@ class BM25DocumentRetriever(BaseRetriever):
     def _get_relevant_documents(
         self, query: str, *, run_manager: CallbackManagerForRetrieverRun
     ) -> list[Document]:
-        # Puntúa cada fragmento contra la pregunta
+        # Puntuar cada fragmento contra la pregunta
         scores = self.bm25_index.get_scores(tokenize_text(query))
-        # Ordena las posiciones de mayor a menor puntaje
+        # Ordenar las posiciones de mayor a menor puntaje
         ranked_positions = sorted(range(len(scores)), key=scores.__getitem__, reverse=True)
-        # Devuelve los mejores fragmentos
+        # Devolver los mejores fragmentos
         return [self.documents[position] for position in ranked_positions[: self.top_k]]
 
 
-# Carga los fragmentos guardados en LanceDB
+# Cargar los fragmentos guardados en LanceDB
 def load_stored_documents(settings: Settings) -> list[Document]:
     """Lee todos los chunks guardados en LanceDB para construir el índice BM25."""
-    # Abre la tabla de vectores
+    # Abrir la tabla de vectores
     table = lancedb.connect(settings.vector_store_directory).open_table(
         settings.vector_store_table_name
     )
-    # Lee todas las filas como diccionarios
+    # Leer todas las filas como diccionarios
     stored_rows = table.to_arrow().to_pylist()
-    # Convierte cada fila en un Document
+    # Convertir cada fila en un Document
     return [
         Document(page_content=row["text"], metadata=json.loads(row["metadata"]))
         for row in stored_rows
     ]
 
 
-# Crea el retriever híbrido
+# Crear el retriever híbrido
 def create_hybrid_retriever(embeddings: Embeddings, settings: Settings) -> EnsembleRetriever:
     """Combina el retriever semántico y BM25 con los pesos definidos en la configuración."""
     # Retriever semántico sobre LanceDB
@@ -100,7 +84,7 @@ def create_hybrid_retriever(embeddings: Embeddings, settings: Settings) -> Ensem
         top_k=settings.retrieval_top_k,
     )
 
-    # Une ambos retrievers según sus pesos
+    # Unir ambos retrievers según sus pesos
     return EnsembleRetriever(
         retrievers=[dense_retriever, bm25_retriever],
         weights=[settings.dense_weight, settings.bm25_weight],

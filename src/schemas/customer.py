@@ -1,12 +1,10 @@
 """Esquema de un cliente del CSV AutoInsurance. Valida y renombra las columnas."""
 
-# Para interpretar fechas
+# Librería estándar
 from datetime import datetime
-
-# Permite agregar reglas a un tipo
 from typing import Annotated
 
-# Herramientas de validación de Pydantic
+# Librerías externas
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 # Formato del identificador, ej: BU79786. El dataset incluye algunos con minúscula como No36572
@@ -18,7 +16,7 @@ CustomerIdentifier = Annotated[str, StringConstraints(pattern=r"^[A-Za-z]{2}\d{5
 class Customer(BaseModel):
     """Una fila del CSV. Los alias son los nombres originales de las columnas."""
 
-    # Permite usar el nombre del campo además del alias
+    # Permitir usar el nombre del campo además del alias
     model_config = ConfigDict(populate_by_name=True)
 
     # Identificador del cliente
@@ -70,22 +68,22 @@ class Customer(BaseModel):
     # Tamaño del vehículo
     vehicle_size: str = Field(alias="Vehicle Size")
 
-    # Se ejecuta al validar la fecha
+    # Ejecutar al validar la fecha
     @field_validator("effective_to_date")
     # Método que no depende de una instancia
     @classmethod
-    # Unifica los formatos de fecha
+    # Unificar los formatos de fecha
     def convert_date_to_iso_format(cls, raw_date: str) -> str:
         """El CSV mezcla 2/24/11 (mes primero) y 02-04-2011 (día primero). Se unifica a ISO."""
-        # Prueba cada formato de fecha conocido
+        # Probar cada formato de fecha conocido
         for date_format in ("%m/%d/%y", "%d-%m-%Y"):
-            # Intenta interpretar la fecha con este formato
+            # Intentar interpretar la fecha con este formato
             try:
-                # Devuelve la fecha como AAAA-MM-DD
+                # Devolver la fecha como AAAA-MM-DD
                 return datetime.strptime(raw_date, date_format).date().isoformat()
             # Si el formato no coincide
             except ValueError:
-                # Prueba con el siguiente formato
+                # Probar con el siguiente formato
                 continue
-        # Rechaza la fila si ningún formato sirve
+        # Rechazar la fila si ningún formato sirve
         raise ValueError(f"Formato de fecha no reconocido: {raw_date}")

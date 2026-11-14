@@ -1,9 +1,9 @@
 """Esquemas de la consulta entrante y de la respuesta del asistente."""
 
-# Base de modelos y validación de campos
+# Librerías externas
 from pydantic import BaseModel, Field
 
-# Reutiliza el formato de identificador
+# Módulos del proyecto
 from src.schemas.customer import CustomerIdentifier
 
 

@@ -1,18 +1,12 @@
 """Configuración central del proyecto. Todo se lee del archivo .env o del entorno."""
 
-# Clase base para enumeraciones de texto
+# Librería estándar
 from enum import StrEnum
-
-# Permite guardar en caché el resultado de una función
 from functools import lru_cache
-
-# Manejo de rutas de archivos
 from pathlib import Path
 
-# Base de modelos y validación de campos
+# Librerías externas
 from pydantic import BaseModel, Field
-
-# Lectura de configuración desde el entorno
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -48,7 +42,7 @@ class ModelSettings(BaseModel):
 class Settings(BaseSettings):
     """Variables de entorno, ej: LLM_PROVIDER, LLM_NAME y LLM_TEMPERATURE."""
 
-    # Lee el archivo .env e ignora variables desconocidas
+    # Leer el archivo .env e ignorar variables desconocidas
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # Modelos por rol. Cambiar de local a pago es solo cambiar estas variables
@@ -116,36 +110,36 @@ class Settings(BaseSettings):
     # Nivel de detalle de los logs
     log_level: str = "INFO"
 
-    # Se usa como atributo en lugar de método
+    # Usar como atributo en lugar de método
     @property
-    # Agrupa los datos del modelo principal
+    # Agrupar los datos del modelo principal
     def llm(self) -> ModelSettings:
-        # Construye el objeto con los valores configurados
+        # Construir el objeto con los valores configurados
         return ModelSettings(
             provider=self.llm_provider, name=self.llm_name, temperature=self.llm_temperature
         )
 
-    # Se usa como atributo en lugar de método
+    # Usar como atributo en lugar de método
     @property
-    # Agrupa los datos del modelo juez
+    # Agrupar los datos del modelo juez
     def judge(self) -> ModelSettings:
-        # Construye el objeto con los valores configurados
+        # Construir el objeto con los valores configurados
         return ModelSettings(
             provider=self.judge_provider, name=self.judge_name, temperature=self.judge_temperature
         )
 
-    # Se usa como atributo en lugar de método
+    # Usar como atributo en lugar de método
     @property
-    # Agrupa los datos del modelo de embeddings
+    # Agrupar los datos del modelo de embeddings
     def embedding(self) -> ModelSettings:
-        # Construye el objeto de embeddings con proveedor y nombre
+        # Construir el objeto de embeddings con proveedor y nombre
         return ModelSettings(provider=self.embedding_provider, name=self.embedding_name)
 
 
-# Evita leer el entorno más de una vez
+# Evitar leer el entorno más de una vez
 @lru_cache
 # Punto único para obtener la configuración
 def get_settings() -> Settings:
     """Devuelve una única instancia de la configuración."""
-    # Crea la configuración leyendo el entorno
+    # Crear la configuración leyendo el entorno
     return Settings()
