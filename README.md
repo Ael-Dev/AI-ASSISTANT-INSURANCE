@@ -68,7 +68,8 @@ data/
 | 1 Fundación: configuración, esquemas, ingesta | Hecha |
 | 2 RAG con reranker | Hecha |
 | 2 CRM tool y memoria de sesión | Pendiente |
-| 3 Agentes, prompts, FastAPI y seguridad | Pendiente |
+| 3 Policy agent y prompt | Hecha |
+| 3 Orquestador, FastAPI y seguridad | Pendiente |
 | 4 Integración y demo | Pendiente |
 
 ---
@@ -103,17 +104,23 @@ cp .env.example .env
 # 3. Modelo de embeddings local
 ollama pull bge-m3
 
-# 4. Ingesta: CSV a SQLite y PDFs a LanceDB
-uv run python scripts/index_documents.py
+# 4. Cargar el CRM en SQLite
+uv run python scripts/index_crm.py
 
-# 5. Probar el RAG y el CRM
+# 5. Construir la base de conocimiento con embeddings
+uv run python scripts/index_knowledge_base.py
+
+# 6. Probar el RAG y el CRM
 uv run python scripts/ask_rag.py "¿Cuánto cuesta la grúa por kilómetro adicional?"
 uv run python scripts/query_crm.py BU79786
 
-# 6. Pruebas
+# 7. Probar el agente de políticas (requiere el modelo LLM en Ollama)
+uv run python scripts/ask_agent.py "¿Cuánto cuesta la grúa por kilómetro adicional?"
+
+# 8. Pruebas
 uv run pytest
 
-# 7. Documentación local
+# 9. Documentación local
 uv run --group docs mkdocs serve
 ```
 
@@ -130,7 +137,7 @@ Los modelos se cambian solo con variables. Proveedores: `ollama`, `openrouter`, 
 | `EMBEDDING_PROVIDER`, `EMBEDDING_NAME` | Modelo de embeddings |
 | `CHUNK_SIZE`, `CHUNK_OVERLAP` | Tamaño y solape de los chunks. Reindexar al cambiarlos |
 | `RETRIEVAL_CANDIDATES_K` | Candidatos por método antes del reranking |
-| `RERANK_TOP_K` | Fragmentos devueltos después del reranking |
+| `RERANK_TOP_K` | Fragmentos devueltos después del reranking, 5 por defecto |
 | `RERANK_ENABLED`, `RERANK_MODEL_NAME`, `RERANK_THREADS` | Configuración del reranker |
 | `DENSE_WEIGHT`, `BM25_WEIGHT` | Peso de cada método de búsqueda |
 | `OLLAMA_BASE_URL` | Dirección del servidor Ollama |

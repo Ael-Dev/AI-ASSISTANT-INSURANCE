@@ -6,7 +6,7 @@ Estado de la implementación por etapas del plan.
 |---|---|---|
 | 1 Fundación | Configuración, esquemas, ingesta de CRM y base de conocimiento | Implementada en la rama feature/p1-foundation |
 | 2 RAG y CRM | Retriever híbrido y rag_tool implementados. Falta CRM y memoria de sesión | En progreso |
-| 3 Agentes y seguridad | Orquestador LangGraph, validadores, evaluación | Pendiente |
+| 3 Agentes y seguridad | Policy agent implementado. Faltan orquestador, validadores y evaluación | En progreso |
 | 4 Integración | Prueba de punta a punta y demo | Pendiente |
 
 ## Etapa 1 Fundación
@@ -26,7 +26,7 @@ Cada rol tiene su propio modelo y se cambia solo por variables de entorno. Los r
 ```bash
 # Local
 LLM_PROVIDER=ollama
-LLM_NAME=qwen3:8b
+LLM_NAME=4skl/gemma4-e2b-mtp:latest
 
 # De pago
 LLM_PROVIDER=anthropic
@@ -34,6 +34,8 @@ LLM_NAME=claude-sonnet-5-5
 ```
 
 ### Flujo de ingesta
+
+Son dos scripts independientes. index_crm.py carga SQLite e index_knowledge_base.py construye los embeddings.
 
 ```mermaid
 flowchart LR
@@ -47,7 +49,8 @@ flowchart LR
 uv sync
 cp .env.example .env
 ollama pull bge-m3
-uv run python scripts/index_documents.py
+uv run python scripts/index_crm.py
+uv run python scripts/index_knowledge_base.py
 uv run pytest
 ```
 
@@ -89,3 +92,26 @@ Reranker: jina-reranker-v2-base-multilingual, local, con 4 hilos de CPU para no 
 Chunking: los títulos de los PDFs se recuperan como encabezados para que cada pregunta o subsección quede completa en un fragmento.
 
 Nota técnica: la librería langchain-lancedb sobrescribe el metadato source, por eso el nombre del documento se guarda como document_name.
+
+## Agente de políticas
+
+Grafo de LangGraph con tres pasos fijos. El modelo no decide si consulta el RAG.
+
+```mermaid
+flowchart LR
+    Q[Pregunta] --> R[Reformular con Pydantic]
+    R --> T[Consultar el RAG siempre]
+    T --> G[Responder con Pydantic]
+    G --> S[Validar fuentes usadas]
+```
+
+| Paso | Detalle |
+|---|---|
+| Reformular | El modelo devuelve un SearchPlan con una consulta, o dos si la pregunta es compuesta |
+| Consultar | La tool recibe las consultas, une los fragmentos sin repetir y los entrega como resultado de tool en etiquetas source con id |
+| Responder | El modelo devuelve un PolicyAnswer con la respuesta y los ids de las fuentes que usó |
+| Validar | El sistema descarta los ids que no existen y muestra solo las fuentes declaradas y válidas |
+
+Archivos: src/agents/policy_agent.py, src/prompts/system_prompts.py, src/schemas/query.py y scripts/ask_agent.py.
+
+El system prompt lleva solo reglas. El usuario envía solo la pregunta. El contenido de cada fragmento se escapa para que no pueda cerrar la etiqueta ni inyectar instrucciones.

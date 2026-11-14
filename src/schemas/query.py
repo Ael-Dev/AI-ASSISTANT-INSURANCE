@@ -19,6 +19,24 @@ class UserQuery(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
 
 
+# Consultas de búsqueda que genera el modelo a partir de la pregunta
+class SearchPlan(BaseModel):
+    """Plan de búsqueda. Una consulta por cada tema, máximo dos."""
+
+    # Una consulta por tema, máximo dos
+    queries: list[str] = Field(min_length=1, max_length=2)
+
+
+# Respuesta estructurada del modelo antes de agregar las fuentes
+class PolicyAnswer(BaseModel):
+    """Respuesta del modelo con los ids de las fuentes que usó."""
+
+    # Texto de la respuesta
+    answer: str
+    # Ids de las etiquetas source que sustentan la respuesta, vacío si no hay información
+    used_source_ids: list[int] = Field(default_factory=list)
+
+
 # Respuesta que devuelve el asistente
 class AssistantAnswer(BaseModel):
     """Respuesta del asistente con las fuentes usadas."""
@@ -27,5 +45,7 @@ class AssistantAnswer(BaseModel):
     session_id: str
     # Texto de la respuesta
     answer: str
-    # Documentos usados, vacío por defecto
+    # Consultas que se enviaron al RAG
+    search_queries: list[str] = Field(default_factory=list)
+    # Fuentes que el modelo usó, validadas contra lo recuperado
     sources: list[str] = Field(default_factory=list)

@@ -49,13 +49,17 @@ class Settings(BaseSettings):
     # Proveedor del modelo principal
     llm_provider: ModelProvider = ModelProvider.OLLAMA
     # Nombre del modelo principal
-    llm_name: str = "qwen3:8b"
+    llm_name: str = "4skl/gemma4-e2b-mtp:latest"
     # Temperatura del modelo principal
     llm_temperature: float = 0.0
+    # Máximo de tokens que puede generar el modelo por respuesta
+    llm_max_output_tokens: int = Field(default=512, gt=0)
+    # Razonamiento interno del modelo. Debe estar apagado: consume los tokens de salida
+    llm_reasoning: bool = False
     # Proveedor del modelo juez
     judge_provider: ModelProvider = ModelProvider.OLLAMA
     # Nombre del modelo juez
-    judge_name: str = "qwen3:8b"
+    judge_name: str = "4skl/gemma4-e2b-mtp:latest"
     # Temperatura del modelo juez
     judge_temperature: float = 0.0
     # Proveedor del modelo de embeddings
@@ -101,7 +105,7 @@ class Settings(BaseSettings):
     # Modelo reranker multilingüe y local
     rerank_model_name: str = "jinaai/jina-reranker-v2-base-multilingual"
     # Fragmentos que se devuelven después del reranking
-    rerank_top_k: int = Field(default=4, gt=0)
+    rerank_top_k: int = Field(default=5, gt=0)
     # Hilos de CPU del reranker, pocos para dejar recursos al LLM local
     rerank_threads: int = Field(default=4, gt=0)
     # Carpeta donde se descarga el modelo reranker

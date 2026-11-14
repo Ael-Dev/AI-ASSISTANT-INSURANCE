@@ -21,6 +21,13 @@ def create_chat_model(model_settings: ModelSettings, settings: Settings) -> Base
     if model_settings.provider == ModelProvider.OLLAMA:
         # Agregar la dirección del servidor local
         extra_arguments["base_url"] = settings.ollama_base_url
+        # Ollama limita la salida con num_predict
+        extra_arguments["num_predict"] = settings.llm_max_output_tokens
+        # Apagar el razonamiento para que no consuma los tokens de la respuesta
+        extra_arguments["reasoning"] = settings.llm_reasoning
+    # Los demás proveedores limitan la salida con max_tokens
+    else:
+        extra_arguments["max_tokens"] = settings.llm_max_output_tokens
 
     # Devolver el modelo ya configurado
     return init_chat_model(
