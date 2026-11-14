@@ -49,13 +49,15 @@ class Settings(BaseSettings):
     # Proveedor del modelo principal
     llm_provider: ModelProvider = ModelProvider.OLLAMA
     # Nombre del modelo principal
-    llm_name: str = "qwen2.5:3b"
+    llm_name: str = "4skl/gemma4-e2b-mtp:latest"
     # Temperatura del modelo principal
     llm_temperature: float = 0.0
+    # Máximo de tokens que puede generar el modelo por respuesta
+    llm_max_output_tokens: int = Field(default=512, gt=0)
     # Proveedor del modelo juez
     judge_provider: ModelProvider = ModelProvider.OLLAMA
     # Nombre del modelo juez
-    judge_name: str = "qwen2.5:3b"
+    judge_name: str = "4skl/gemma4-e2b-mtp:latest"
     # Temperatura del modelo juez
     judge_temperature: float = 0.0
     # Proveedor del modelo de embeddings

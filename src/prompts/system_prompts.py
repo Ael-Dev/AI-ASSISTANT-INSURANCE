@@ -1,16 +1,16 @@
 """Prompts del sistema. Se gestionan aquí y nunca se mezclan con los fragmentos del RAG."""
 
-# Instrucciones para reformular la pregunta antes de buscar
+# Instrucciones para detectar preguntas compuestas. La pregunta original se busca siempre
 QUERY_REWRITE_SYSTEM_PROMPT = """\
 <role>
-Reformulas preguntas de usuarios para buscarlas en manuales de siniestros de autos.
+Detectas si una pregunta sobre un manual de siniestros de autos tiene varios temas.
 </role>
 
 <rules>
-1. Devuelve consultas de búsqueda autocontenidas, con términos técnicos claros.
-2. Si la pregunta tiene varios temas, devuelve una consulta por tema, máximo 3.
-3. Si tiene un solo tema, devuelve una sola consulta.
-4. No respondas la pregunta.
+1. Si tiene un solo tema, devuelve la pregunta tal cual.
+2. Si tiene varios temas, sepárala en una consulta por tema usando las mismas palabras
+   del usuario, máximo 3.
+3. No cambies términos, no agregues información y no respondas.
 </rules>"""
 
 # Instrucciones del agente de políticas. Los fragmentos llegan como resultado de tool

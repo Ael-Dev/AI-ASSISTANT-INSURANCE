@@ -55,15 +55,19 @@ def create_policy_agent(settings: Settings, rag_tool: BaseTool):
     # Modelo que devuelve la respuesta validada con Pydantic
     answer_model = model.with_structured_output(PolicyAnswer)
 
-    # Paso 1: reformular la pregunta o separarla si es compuesta
+    # Paso 1: conservar la pregunta y separarla solo si es compuesta
     def rewrite_question(state: PolicyState) -> dict:
         # Pedir el plan de búsqueda al modelo
         plan = query_planner.invoke(
             [SystemMessage(QUERY_REWRITE_SYSTEM_PROMPT), HumanMessage(state["question"])]
         )
-        # Usar la pregunta original si el modelo no devolvió un plan válido
-        queries = plan.queries if plan else [state["question"]]
-        return {"search_queries": queries}
+        # La pregunta original va siempre sin cambios
+        queries = [state["question"]]
+        # Agregar subconsultas solo si el modelo detectó varios temas
+        if plan and len(plan.queries) > 1:
+            queries += [query for query in plan.queries if query != state["question"]]
+        # Limitar a tres consultas en total
+        return {"search_queries": queries[:3]}
 
     # Paso 2: consultar el RAG siempre, sin dejarlo a decisión del modelo
     def retrieve_documents(state: PolicyState) -> dict:

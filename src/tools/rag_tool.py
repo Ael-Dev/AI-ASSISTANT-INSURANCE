@@ -47,8 +47,8 @@ def format_documents_as_sources(documents: list) -> str:
 
 
 # Crear la tool con un retriever dado
-def create_rag_tool(retriever: BaseRetriever) -> BaseTool:
-    """Crea la tool sobre un retriever ya construido."""
+def create_rag_tool(retriever: BaseRetriever, max_documents: int = 3) -> BaseTool:
+    """Crea la tool sobre un retriever ya construido. Devuelve como máximo max_documents."""
 
     # Registrar la función como tool y separar el texto para el modelo del artefacto para el sistema
     @tool(response_format="content_and_artifact")
@@ -63,6 +63,11 @@ def create_rag_tool(retriever: BaseRetriever) -> BaseTool:
                 if document.page_content not in seen_contents:
                     seen_contents.add(document.page_content)
                     documents.append(document)
+
+        # Conservar solo los mejores según el puntaje del reranker, aunque haya varias consultas
+        documents = sorted(
+            documents, key=lambda document: document.metadata.get("rerank_score", 0), reverse=True
+        )[:max_documents]
 
         # Devolver el XML para el modelo y los metadatos reales con el mismo id
         return format_documents_as_sources(documents), [
@@ -84,4 +89,4 @@ def create_rag_tool(retriever: BaseRetriever) -> BaseTool:
 def build_rag_tool(embeddings: Embeddings, settings: Settings) -> BaseTool:
     """Atajo que construye el retriever híbrido y la tool juntos."""
     # Crear el retriever y luego la tool
-    return create_rag_tool(create_hybrid_retriever(embeddings, settings))
+    return create_rag_tool(create_hybrid_retriever(embeddings, settings), settings.rerank_top_k)
