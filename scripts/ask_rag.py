@@ -12,9 +12,6 @@ from src.config.model_factory import create_default_embeddings
 from src.config.settings import get_settings
 from src.rag.retriever import create_hybrid_retriever
 
-# Cantidad de caracteres de cada fragmento que se muestra en pantalla
-PREVIEW_CHARACTERS = 400
-
 
 def print_answer(retriever, question: str) -> None:
     """Buscar los fragmentos de una pregunta e imprimirlos con su fuente."""
@@ -25,10 +22,12 @@ def print_answer(retriever, question: str) -> None:
     print(f"\nPREGUNTA: {question}")
     print(f"Fragmentos encontrados: {len(documents)}")
 
-    # Imprimir cada fragmento con su documento de origen
+    # Imprimir cada fragmento completo con su documento de origen
     for position, document in enumerate(documents, start=1):
-        print(f"\n--- Fragmento {position} | {document.metadata.get('document_name')}")
-        print(document.page_content[:PREVIEW_CHARACTERS])
+        score = document.metadata.get("rerank_score")
+        document_name = document.metadata.get("document_name")
+        print(f"\n--- Fragmento {position} | {document_name} | puntaje {score}")
+        print(document.page_content)
 
 
 def main() -> None:

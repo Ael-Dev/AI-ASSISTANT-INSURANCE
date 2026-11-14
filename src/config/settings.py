@@ -87,15 +87,25 @@ class Settings(BaseSettings):
 
     # Parámetros de chunking en caracteres
     # Tamaño máximo de cada fragmento en caracteres
-    chunk_size: int = Field(default=1200, gt=0)
+    chunk_size: int = Field(default=1500, gt=0)
     # Caracteres compartidos entre fragmentos vecinos
     chunk_overlap: int = Field(default=150, ge=0)
     # Fragmentos enviados por lote al modelo de embeddings
     embedding_batch_size: int = Field(default=64, gt=0)
 
     # Recuperación híbrida: cuántos fragmentos devolver y el peso de cada método
-    # Cantidad de fragmentos devueltos por búsqueda
-    retrieval_top_k: int = Field(default=4, gt=0)
+    # Candidatos que recupera cada método antes del reranking
+    retrieval_candidates_k: int = Field(default=6, gt=0)
+    # Activar o desactivar el reranking
+    rerank_enabled: bool = True
+    # Modelo reranker multilingüe y local
+    rerank_model_name: str = "jinaai/jina-reranker-v2-base-multilingual"
+    # Fragmentos que se devuelven después del reranking
+    rerank_top_k: int = Field(default=4, gt=0)
+    # Hilos de CPU del reranker, pocos para dejar recursos al LLM local
+    rerank_threads: int = Field(default=4, gt=0)
+    # Carpeta donde se descarga el modelo reranker
+    rerank_cache_directory: Path = Path("data/processed/models")
     # Peso de la búsqueda semántica
     dense_weight: float = Field(default=0.5, ge=0.0, le=1.0)
     # Peso de la búsqueda por palabras clave

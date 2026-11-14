@@ -75,11 +75,14 @@ La base vectorial es LanceDB, local y sin servidor. Todo vive en las carpetas or
 flowchart LR
     Q[Pregunta] --> D[Semántica LanceDB]
     Q --> B[BM25]
-    D --> E[EnsembleRetriever] 
+    D --> E[EnsembleRetriever]
     B --> E
-    E --> T[rag_tool con citas]
+    E --> R[Reranker]
+    R --> T[rag_tool con citas]
 ```
 
-Los pesos y la cantidad de fragmentos se cambian con DENSE_WEIGHT, BM25_WEIGHT y RETRIEVAL_TOP_K.
+Los pesos y la cantidad de fragmentos se cambian con DENSE_WEIGHT y BM25_WEIGHT. Los candidatos antes del reranking se definen con RETRIEVAL_CANDIDATES_K y los que se devuelven después con RERANK_TOP_K.
+
+Reranker: jina-reranker-v2-base-multilingual, local, con 4 hilos de CPU para no competir con el LLM. Se eligió frente a bge-reranker-v2-m3 porque acertó igual en las pruebas y fue el doble de rápido.
 
 Nota técnica: la librería langchain-lancedb sobrescribe el metadato source, por eso el nombre del documento se guarda como document_name.

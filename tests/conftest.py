@@ -15,4 +15,6 @@ def settings_for_tests(tmp_path) -> Settings:
         vector_store_directory=tmp_path / "vectorstore",
         chunk_size=400,
         chunk_overlap=50,
+        # Evitar descargar el modelo reranker en las pruebas
+        rerank_enabled=False,
     )

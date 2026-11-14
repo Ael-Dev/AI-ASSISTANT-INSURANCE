@@ -5,7 +5,7 @@ import json
 
 # Librerías externas
 import lancedb
-from langchain_classic.retrievers import EnsembleRetriever
+from langchain_classic.retrievers import ContextualCompressionRetriever, EnsembleRetriever
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
@@ -16,6 +16,7 @@ from rank_bm25 import BM25Okapi
 # Módulos del proyecto
 from src.config.settings import Settings
 from src.rag.ingest import open_vector_store
+from src.rag.reranker import create_reranker
 
 
 # Convertir un texto en palabras
@@ -68,11 +69,11 @@ def load_stored_documents(settings: Settings) -> list[Document]:
 
 
 # Crear el retriever híbrido
-def create_hybrid_retriever(embeddings: Embeddings, settings: Settings) -> EnsembleRetriever:
-    """Combina el retriever semántico y BM25 con los pesos definidos en la configuración."""
+def create_hybrid_retriever(embeddings: Embeddings, settings: Settings) -> BaseRetriever:
+    """Combina semántico y BM25 con pesos, y aplica reranking si está activo."""
     # Retriever semántico sobre LanceDB
     dense_retriever = open_vector_store(embeddings, settings).as_retriever(
-        search_kwargs={"k": settings.retrieval_top_k}
+        search_kwargs={"k": settings.retrieval_candidates_k}
     )
 
     # Fragmentos para el índice BM25
@@ -81,11 +82,21 @@ def create_hybrid_retriever(embeddings: Embeddings, settings: Settings) -> Ensem
     bm25_retriever = BM25DocumentRetriever(
         documents=documents,
         bm25_index=BM25Okapi([tokenize_text(document.page_content) for document in documents]),
-        top_k=settings.retrieval_top_k,
+        top_k=settings.retrieval_candidates_k,
     )
 
     # Unir ambos retrievers según sus pesos
-    return EnsembleRetriever(
+    ensemble_retriever = EnsembleRetriever(
         retrievers=[dense_retriever, bm25_retriever],
         weights=[settings.dense_weight, settings.bm25_weight],
+    )
+
+    # Devolver los candidatos sin reranking si está desactivado
+    if not settings.rerank_enabled:
+        return ensemble_retriever
+
+    # Reordenar los candidatos y quedarse con los mejores
+    return ContextualCompressionRetriever(
+        base_compressor=create_reranker(settings),
+        base_retriever=ensemble_retriever,
     )
