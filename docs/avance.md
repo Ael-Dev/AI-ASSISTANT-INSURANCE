@@ -95,18 +95,23 @@ Nota técnica: la librería langchain-lancedb sobrescribe el metadato source, po
 
 ## Agente de políticas
 
-| Archivo | Función |
+Grafo de LangGraph con tres pasos fijos. El modelo no decide si consulta el RAG.
+
+```mermaid
+flowchart LR
+    Q[Pregunta] --> R[Reformular con Pydantic]
+    R --> T[Consultar el RAG siempre]
+    T --> G[Responder con Pydantic]
+    G --> S[Validar fuentes usadas]
+```
+
+| Paso | Detalle |
 |---|---|
-| src/prompts/system_prompts.py | Prompt con secciones XML, separado del código |
-| src/agents/policy_agent.py | Agente creado con create_agent de LangChain |
-| scripts/ask_agent.py | Prueba del agente por terminal |
+| Reformular | El modelo devuelve un SearchPlan con una consulta, o varias si la pregunta es compuesta |
+| Consultar | La tool recibe las consultas, une los fragmentos sin repetir y los entrega como resultado de tool en etiquetas source con id |
+| Responder | El modelo devuelve un PolicyAnswer con la respuesta y los ids de las fuentes que usó |
+| Validar | El sistema descarta los ids que no existen y muestra solo las fuentes declaradas y válidas |
 
-Separación de canales:
+Archivos: src/agents/policy_agent.py, src/prompts/system_prompts.py, src/schemas/query.py y scripts/ask_agent.py.
 
-- El system prompt lleva solo reglas y formato.
-- El usuario envía solo la pregunta.
-- Los fragmentos llegan como resultado de la tool dentro de etiquetas source con id, document y section.
-- El contenido de cada fragmento se escapa para que no pueda cerrar la etiqueta ni inyectar instrucciones.
-- El prompt indica que lo que está dentro de source son datos no confiables.
-
-Fuentes deterministas: el modelo no escribe las fuentes. La tool devuelve los metadatos reales de los fragmentos como artefacto y el sistema los lista al final de la respuesta. Si el agente no consulta los manuales, la lista indica que no hubo fragmentos recuperados.
+El system prompt lleva solo reglas. El usuario envía solo la pregunta. El contenido de cada fragmento se escapa para que no pueda cerrar la etiqueta ni inyectar instrucciones.

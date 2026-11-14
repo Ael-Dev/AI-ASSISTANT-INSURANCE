@@ -110,7 +110,7 @@ def test_hybrid_retriever_and_tool_return_cited_fragments(settings_for_tests, tm
     # Crear el retriever híbrido
     retriever = create_hybrid_retriever(embeddings, settings_for_tests)
     # Invocar la tool con una pregunta
-    tool_answer = create_rag_tool(retriever).invoke({"question": "banderazo grúa"})
+    tool_answer = create_rag_tool(retriever).invoke({"queries": ["banderazo grúa"]})
 
     # La respuesta incluye la fuente
     assert 'document="manual"' in tool_answer
@@ -144,24 +144,44 @@ def test_policy_prompt_uses_xml_sections():
         assert tag in POLICY_AGENT_SYSTEM_PROMPT
 
 
-# Probar que las fuentes salen del artefacto de la tool y no del texto del modelo
-def test_sources_are_extracted_from_tool_artifacts():
-    from langchain_core.messages import AIMessage, ToolMessage
+# Probar que solo se muestran fuentes que el modelo declaró y que existen
+def test_only_declared_and_valid_sources_are_selected():
+    from src.agents.policy_agent import select_used_sources
 
-    from src.agents.policy_agent import extract_sources
-
-    # Simular una conversación donde el modelo inventa una fuente en su texto
-    messages = [
-        ToolMessage(
-            content="<sources></sources>",
-            tool_call_id="1",
-            artifact=[
-                {"document_name": "manual", "topic": "P4"},
-                {"document_name": "manual", "topic": "P4"},
-            ],
-        ),
-        AIMessage(content="Fuentes: documento inventado"),
+    artifact = [
+        {"id": 1, "document_name": "manual", "topic": "P4"},
+        {"id": 2, "document_name": "manual", "topic": "P9"},
+        {"id": 3, "document_name": "tabla", "topic": ""},
     ]
 
-    # Solo aparece la fuente real y sin repetir
-    assert extract_sources(messages) == ["manual | P4"]
+    # El id 2 no se declaró y el id 99 no existe
+    assert select_used_sources(artifact, [3, 1, 99]) == ["manual | P4", "tabla"]
+    # Sin ids declarados no hay fuentes
+    assert select_used_sources(artifact, []) == []
+
+
+# Probar que la tool une varias consultas sin repetir fragmentos
+def test_rag_tool_merges_queries_without_duplicates():
+    from langchain_core.documents import Document
+    from langchain_core.retrievers import BaseRetriever
+
+    from src.tools.rag_tool import create_rag_tool
+
+    # Retriever falso que siempre devuelve los mismos fragmentos
+    class FixedRetriever(BaseRetriever):
+        def _get_relevant_documents(self, query, *, run_manager):
+            return [
+                Document(page_content="uno", metadata={"document_name": "manual", "topic": "A"}),
+                Document(page_content="dos", metadata={"document_name": "manual", "topic": "B"}),
+            ]
+
+    tool_call = {
+        "name": "search_policy_documents",
+        "args": {"queries": ["a", "b"]},
+        "id": "1",
+        "type": "tool_call",
+    }
+    tool_message = create_rag_tool(FixedRetriever()).invoke(tool_call)
+
+    # Dos fragmentos únicos con ids consecutivos
+    assert [item["id"] for item in tool_message.artifact] == [1, 2]

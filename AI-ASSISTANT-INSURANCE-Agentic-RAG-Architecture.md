@@ -347,7 +347,7 @@ AI-ASSISTANT-INSURANCE/
 │
 ├── src/
 │   ├── agents/
-│   │   └── policy_agent.py        ← create_agent con rag_tool. Pendiente: orchestrator y support_agent
+│   │   └── policy_agent.py        ← grafo LangGraph: reformular, consultar RAG y responder. Pendiente: orchestrator y support_agent
 │   ├── tools/
 │   │   ├── crm_loader.py          ← CSV validado con Pydantic a SQLite
 │   │   ├── crm_tool.py            ← pendiente: SELECT con ownership check

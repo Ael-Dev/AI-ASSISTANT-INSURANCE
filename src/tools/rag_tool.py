@@ -53,19 +53,27 @@ def create_rag_tool(retriever: BaseRetriever) -> BaseTool:
     # Registrar la función como tool y separar el texto para el modelo del artefacto para el sistema
     @tool(response_format="content_and_artifact")
     # Tool que el agente puede invocar
-    def search_policy_documents(question: str) -> tuple[str, list[dict]]:
-        """Busca en los manuales de la aseguradora procedimientos, coberturas, costos y reclamos."""
-        # Buscar los fragmentos más relevantes
-        documents = retriever.invoke(question)
-        # Devolver el XML para el modelo y los metadatos reales para citar sin el modelo
+    def search_policy_documents(queries: list[str]) -> tuple[str, list[dict]]:
+        """Busca en los manuales una o varias consultas sobre siniestros, coberturas y costos."""
+        # Buscar cada consulta y unir los fragmentos sin repetir
+        documents: list = []
+        seen_contents: set[str] = set()
+        for query in queries:
+            for document in retriever.invoke(query):
+                if document.page_content not in seen_contents:
+                    seen_contents.add(document.page_content)
+                    documents.append(document)
+
+        # Devolver el XML para el modelo y los metadatos reales con el mismo id
         return format_documents_as_sources(documents), [
             {
+                "id": position,
                 "document_name": document.metadata.get("document_name", "desconocido"),
                 "topic": document.metadata.get("topic")
                 or document.metadata.get("subsection")
                 or document.metadata.get("section", ""),
             }
-            for document in documents
+            for position, document in enumerate(documents, start=1)
         ]
 
     # Devolver la tool creada

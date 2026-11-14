@@ -19,15 +19,16 @@ def print_agent_answer(agent, question: str) -> None:
     # Invocar el agente y obtener la respuesta con las fuentes de la tool
     answer = ask_policy_agent(agent, question, session_id="terminal")
 
-    # Imprimir la pregunta y la respuesta
+    # Imprimir la pregunta, las consultas enviadas al RAG y la respuesta
     print(f"\nPREGUNTA: {question}")
+    print(f"CONSULTAS AL RAG: {answer.search_queries}")
     print(f"\nRESPUESTA:\n{answer.answer}")
 
-    # Imprimir las fuentes que la tool recuperó, no las que diga el modelo
-    print("\nFUENTES:")
-    # Avisar si el agente no consultó los manuales
+    # Imprimir solo las fuentes que el modelo usó y que existen en lo recuperado
+    print("\nFUENTES USADAS:")
+    # Avisar si la respuesta no se apoyó en ningún fragmento
     if not answer.sources:
-        print("- Ninguna: el agente no recuperó fragmentos")
+        print("- Ninguna")
     for source in answer.sources:
         print(f"- {source}")
 
