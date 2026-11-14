@@ -137,7 +137,7 @@ Los modelos se cambian solo con variables. Proveedores: `ollama`, `openrouter`, 
 | `EMBEDDING_PROVIDER`, `EMBEDDING_NAME` | Modelo de embeddings |
 | `CHUNK_SIZE`, `CHUNK_OVERLAP` | Tamaño y solape de los chunks. Reindexar al cambiarlos |
 | `RETRIEVAL_CANDIDATES_K` | Candidatos por método antes del reranking |
-| `RERANK_TOP_K` | Fragmentos devueltos después del reranking |
+| `RERANK_TOP_K` | Fragmentos devueltos después del reranking, 5 por defecto |
 | `RERANK_ENABLED`, `RERANK_MODEL_NAME`, `RERANK_THREADS` | Configuración del reranker |
 | `DENSE_WEIGHT`, `BM25_WEIGHT` | Peso de cada método de búsqueda |
 | `OLLAMA_BASE_URL` | Dirección del servidor Ollama |

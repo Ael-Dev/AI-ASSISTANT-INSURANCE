@@ -20,6 +20,12 @@ from src.config.settings import Settings
 from src.prompts.system_prompts import POLICY_AGENT_SYSTEM_PROMPT, QUERY_REWRITE_SYSTEM_PROMPT
 from src.schemas.query import AssistantAnswer, PolicyAnswer, SearchPlan
 
+# Intentos para obtener un JSON válido del modelo antes de rendirse
+MAX_GENERATION_ATTEMPTS = 2
+
+# Mensaje cuando el modelo no devuelve una respuesta válida
+GENERATION_FAILED_MESSAGE = "No pude generar una respuesta válida. Intenta de nuevo."
+
 # Máximo de consultas al RAG cuando la pregunta es compuesta
 MAX_SEARCH_QUERIES = 2
 
@@ -127,8 +133,15 @@ def create_policy_agent(settings: Settings, rag_tool: BaseTool):
             ),
             state["retrieval_message"],
         ]
-        # Obtener la respuesta validada por Pydantic
-        return {"policy_answer": answer_model.invoke(messages)}
+        # Intentar dos veces obtener la respuesta validada por Pydantic
+        for _ in range(MAX_GENERATION_ATTEMPTS):
+            try:
+                return {"policy_answer": answer_model.invoke(messages)}
+            # Reintentar si el modelo devolvió un JSON vacío o inválido
+            except (OutputParserException, ValidationError):
+                continue
+        # Responder con un aviso claro en lugar de fallar, sin fuentes
+        return {"policy_answer": PolicyAnswer(answer=GENERATION_FAILED_MESSAGE)}
 
     # Unir los pasos en orden fijo
     graph = StateGraph(PolicyState)

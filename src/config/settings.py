@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.0
     # Máximo de tokens que puede generar el modelo por respuesta
     llm_max_output_tokens: int = Field(default=512, gt=0)
-    # Activar el razonamiento interno en modelos que lo soportan. Apagado es más rápido
+    # Razonamiento interno del modelo. Debe estar apagado: consume los tokens de salida
     llm_reasoning: bool = False
     # Proveedor del modelo juez
     judge_provider: ModelProvider = ModelProvider.OLLAMA
@@ -105,7 +105,7 @@ class Settings(BaseSettings):
     # Modelo reranker multilingüe y local
     rerank_model_name: str = "jinaai/jina-reranker-v2-base-multilingual"
     # Fragmentos que se devuelven después del reranking
-    rerank_top_k: int = Field(default=3, gt=0)
+    rerank_top_k: int = Field(default=5, gt=0)
     # Hilos de CPU del reranker, pocos para dejar recursos al LLM local
     rerank_threads: int = Field(default=4, gt=0)
     # Carpeta donde se descarga el modelo reranker

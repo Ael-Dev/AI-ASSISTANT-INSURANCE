@@ -55,19 +55,19 @@ def create_rag_tool(retriever: BaseRetriever, max_documents: int = 3) -> BaseToo
     # Tool que el agente puede invocar
     def search_policy_documents(queries: list[str]) -> tuple[str, list[dict]]:
         """Busca en los manuales una o varias consultas sobre siniestros, coberturas y costos."""
-        # Buscar cada consulta y unir los fragmentos sin repetir
+        # Buscar cada consulta. Cada lista ya viene ordenada por el reranker
+        results_per_query = [retriever.invoke(query) for query in queries]
+
+        # Repartir los lugares por turnos entre las consultas, sin repetir fragmentos
         documents: list = []
         seen_contents: set[str] = set()
-        for query in queries:
-            for document in retriever.invoke(query):
-                if document.page_content not in seen_contents:
-                    seen_contents.add(document.page_content)
-                    documents.append(document)
-
-        # Conservar solo los mejores según el puntaje del reranker, aunque haya varias consultas
-        documents = sorted(
-            documents, key=lambda document: document.metadata.get("rerank_score", 0), reverse=True
-        )[:max_documents]
+        for position in range(max(len(results) for results in results_per_query)):
+            for results in results_per_query:
+                if position < len(results) and results[position].page_content not in seen_contents:
+                    seen_contents.add(results[position].page_content)
+                    documents.append(results[position])
+        # Conservar solo los primeros fragmentos del reparto
+        documents = documents[:max_documents]
 
         # Devolver el XML para el modelo y los metadatos reales con el mismo id
         return format_documents_as_sources(documents), [
