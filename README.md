@@ -68,7 +68,8 @@ data/
 | 1 Fundación: configuración, esquemas, ingesta | Hecha |
 | 2 RAG con reranker | Hecha |
 | 2 CRM tool y memoria de sesión | Pendiente |
-| 3 Agentes, prompts, FastAPI y seguridad | Pendiente |
+| 3 Policy agent y prompt | Hecha |
+| 3 Orquestador, FastAPI y seguridad | Pendiente |
 | 4 Integración y demo | Pendiente |
 
 ---
@@ -113,10 +114,13 @@ uv run python scripts/index_knowledge_base.py
 uv run python scripts/ask_rag.py "¿Cuánto cuesta la grúa por kilómetro adicional?"
 uv run python scripts/query_crm.py BU79786
 
-# 7. Pruebas
+# 7. Probar el agente de políticas (requiere el modelo LLM en Ollama)
+uv run python scripts/ask_agent.py "¿Cuánto cuesta la grúa por kilómetro adicional?"
+
+# 8. Pruebas
 uv run pytest
 
-# 8. Documentación local
+# 9. Documentación local
 uv run --group docs mkdocs serve
 ```
 

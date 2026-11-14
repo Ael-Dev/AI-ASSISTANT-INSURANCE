@@ -101,7 +101,7 @@ class Settings(BaseSettings):
     # Modelo reranker multilingüe y local
     rerank_model_name: str = "jinaai/jina-reranker-v2-base-multilingual"
     # Fragmentos que se devuelven después del reranking
-    rerank_top_k: int = Field(default=4, gt=0)
+    rerank_top_k: int = Field(default=3, gt=0)
     # Hilos de CPU del reranker, pocos para dejar recursos al LLM local
     rerank_threads: int = Field(default=4, gt=0)
     # Carpeta donde se descarga el modelo reranker

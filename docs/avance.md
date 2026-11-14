@@ -6,7 +6,7 @@ Estado de la implementación por etapas del plan.
 |---|---|---|
 | 1 Fundación | Configuración, esquemas, ingesta de CRM y base de conocimiento | Implementada en la rama feature/p1-foundation |
 | 2 RAG y CRM | Retriever híbrido y rag_tool implementados. Falta CRM y memoria de sesión | En progreso |
-| 3 Agentes y seguridad | Orquestador LangGraph, validadores, evaluación | Pendiente |
+| 3 Agentes y seguridad | Policy agent implementado. Faltan orquestador, validadores y evaluación | En progreso |
 | 4 Integración | Prueba de punta a punta y demo | Pendiente |
 
 ## Etapa 1 Fundación
@@ -92,3 +92,19 @@ Reranker: jina-reranker-v2-base-multilingual, local, con 4 hilos de CPU para no 
 Chunking: los títulos de los PDFs se recuperan como encabezados para que cada pregunta o subsección quede completa en un fragmento.
 
 Nota técnica: la librería langchain-lancedb sobrescribe el metadato source, por eso el nombre del documento se guarda como document_name.
+
+## Agente de políticas
+
+| Archivo | Función |
+|---|---|
+| src/prompts/system_prompts.py | Prompt con secciones XML, separado del código |
+| src/agents/policy_agent.py | Agente creado con create_agent de LangChain |
+| scripts/ask_agent.py | Prueba del agente por terminal |
+
+Separación de canales:
+
+- El system prompt lleva solo reglas y formato.
+- El usuario envía solo la pregunta.
+- Los fragmentos llegan como resultado de la tool dentro de etiquetas source con id, document y section.
+- El contenido de cada fragmento se escapa para que no pueda cerrar la etiqueta ni inyectar instrucciones.
+- El prompt indica que lo que está dentro de source son datos no confiables.

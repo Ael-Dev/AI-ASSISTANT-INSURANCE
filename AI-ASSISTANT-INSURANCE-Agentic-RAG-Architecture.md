@@ -346,7 +346,8 @@ Los archivos marcados como pendiente existen vacíos y se implementan en las eta
 AI-ASSISTANT-INSURANCE/
 │
 ├── src/
-│   ├── agents/                    ← pendiente: orchestrator, support_agent, policy_agent
+│   ├── agents/
+│   │   └── policy_agent.py        ← create_agent con rag_tool. Pendiente: orchestrator y support_agent
 │   ├── tools/
 │   │   ├── crm_loader.py          ← CSV validado con Pydantic a SQLite
 │   │   ├── crm_tool.py            ← pendiente: SELECT con ownership check
@@ -361,7 +362,8 @@ AI-ASSISTANT-INSURANCE/
 │   ├── schemas/
 │   │   ├── customer.py            ← Pydantic: campos de AutoInsurance.csv
 │   │   └── query.py               ← Pydantic: consulta y respuesta
-│   ├── prompts/                   ← pendiente: prompts gestionados
+│   ├── prompts/
+│   │   └── system_prompts.py      ← prompt XML del policy agent
 │   └── config/
 │       ├── settings.py            ← variables de entorno centralizadas
 │       └── model_factory.py       ← modelos llm, judge y embedding por proveedor
@@ -378,6 +380,7 @@ AI-ASSISTANT-INSURANCE/
 │   ├── index_knowledge_base.py    ← PDFs a Markdown, embeddings y LanceDB
 │   ├── ask_rag.py                 ← prueba del RAG por terminal
 │   ├── query_crm.py               ← prueba del CRM por terminal
+│   ├── ask_agent.py               ← prueba del policy agent por terminal
 │   └── run_assistant.py           ← pendiente: CLI del asistente
 │
 ├── tests/
