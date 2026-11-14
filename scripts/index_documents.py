@@ -1,4 +1,4 @@
-"""Ingesta completa: CSV a SQLite y PDFs a Markdown, chunks, embeddings y ChromaDB.
+"""Ingesta completa: CSV a SQLite y PDFs a Markdown, chunks, embeddings y LanceDB.
 
 Uso: uv run python scripts/index_documents.py [--skip-vectors]
 """
@@ -6,11 +6,11 @@ Uso: uv run python scripts/index_documents.py [--skip-vectors]
 import argparse
 import logging
 
+from src.config.model_factory import create_default_embeddings
 from src.config.settings import get_settings
-from src.ingestion.crm_loader import read_customers_from_csv, write_customers_to_sqlite
-from src.ingestion.document_converter import convert_pdfs_to_markdown
-from src.ingestion.knowledge_base import rebuild_vector_store, split_markdown_into_chunks
-from src.models.model_factory import create_default_embeddings
+from src.rag.document_converter import convert_pdfs_to_markdown
+from src.rag.ingest import rebuild_vector_store, split_markdown_into_chunks
+from src.tools.crm_loader import read_customers_from_csv, write_customers_to_sqlite
 
 logger = logging.getLogger("index_documents")
 
@@ -42,11 +42,11 @@ def main() -> None:
     if arguments.skip_vectors:
         return
 
-    # Paso 3: chunks, embeddings y ChromaDB
+    # Paso 3: chunks, embeddings y LanceDB
     chunks = split_markdown_into_chunks(markdown_paths, settings)
     embeddings = create_default_embeddings(settings)
     stored_chunks_count = rebuild_vector_store(chunks, embeddings, settings)
-    logger.info("Chunks guardados en ChromaDB: %d", stored_chunks_count)
+    logger.info("Chunks guardados en LanceDB: %d", stored_chunks_count)
 
 
 if __name__ == "__main__":

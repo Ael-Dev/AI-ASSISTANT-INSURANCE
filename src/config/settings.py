@@ -52,12 +52,17 @@ class Settings(BaseSettings):
     markdown_documents_directory: Path = Path("data/processed/markdown")
     sqlite_database_path: Path = Path("data/processed/crm.db")
     vector_store_directory: Path = Path("data/vectorstore")
-    vector_store_collection_name: str = "insurance_documents"
+    vector_store_table_name: str = "insurance_documents"
 
     # Parámetros de chunking en caracteres
     chunk_size: int = Field(default=1200, gt=0)
     chunk_overlap: int = Field(default=150, ge=0)
     embedding_batch_size: int = Field(default=64, gt=0)
+
+    # Recuperación híbrida: cuántos fragmentos devolver y el peso de cada método
+    retrieval_top_k: int = Field(default=4, gt=0)
+    dense_weight: float = Field(default=0.5, ge=0.0, le=1.0)
+    bm25_weight: float = Field(default=0.5, ge=0.0, le=1.0)
 
     # API
     api_host: str = "0.0.0.0"
