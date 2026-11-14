@@ -1,7 +1,7 @@
 # Entregable 2: Arquitectura del Sistema
 
 > Documento completo con diagramas y decisiones de diseño:  
-> [`AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md`](../AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md)
+> [`AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md`](https://github.com/Ael-Dev/AI-ASSISTANT-INSURANCE/blob/main/AI-ASSISTANT-INSURANCE-Agentic-RAG-Architecture.md)
 
 ---
 

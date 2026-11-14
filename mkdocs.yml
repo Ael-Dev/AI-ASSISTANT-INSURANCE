@@ -1,0 +1,31 @@
+site_name: AI Assistant Insurance
+site_description: Asistente Agentic RAG para seguros de autos con LangChain y LangGraph
+repo_url: https://github.com/Ael-Dev/AI-ASSISTANT-INSURANCE
+docs_dir: docs
+
+theme:
+  name: material
+  language: es
+  features:
+    - navigation.sections
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Inicio: index.md
+  - Avance: avance.md
+  - Ficha: ficha.md
+  - Arquitectura: arquitectura.md
+  - Modelo de amenazas: modelo-de-amenazas.md
+  - Priorización: priorizacion.md
+  - Controles: controles.md
+  - Evaluación: evaluacion.md
+  - Regulatorio: regulatorio.md
