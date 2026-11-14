@@ -107,7 +107,7 @@ flowchart LR
 
 | Paso | Detalle |
 |---|---|
-| Reformular | El modelo devuelve un SearchPlan con una consulta, o varias si la pregunta es compuesta |
+| Reformular | El modelo devuelve un SearchPlan con una consulta, o dos si la pregunta es compuesta |
 | Consultar | La tool recibe las consultas, une los fragmentos sin repetir y los entrega como resultado de tool en etiquetas source con id |
 | Responder | El modelo devuelve un PolicyAnswer con la respuesta y los ids de las fuentes que usó |
 | Validar | El sistema descarta los ids que no existen y muestra solo las fuentes declaradas y válidas |

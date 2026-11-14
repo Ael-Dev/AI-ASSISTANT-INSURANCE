@@ -21,10 +21,10 @@ class UserQuery(BaseModel):
 
 # Consultas de búsqueda que genera el modelo a partir de la pregunta
 class SearchPlan(BaseModel):
-    """Plan de búsqueda. Una consulta por cada tema si la pregunta es compuesta."""
+    """Plan de búsqueda. Una consulta por cada tema, máximo dos."""
 
-    # Consultas autocontenidas, entre una y tres
-    queries: list[str] = Field(min_length=1, max_length=3)
+    # Una consulta por tema, máximo dos
+    queries: list[str] = Field(min_length=1, max_length=2)
 
 
 # Respuesta estructurada del modelo antes de agregar las fuentes

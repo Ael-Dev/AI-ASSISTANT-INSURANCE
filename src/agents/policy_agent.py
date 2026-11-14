@@ -4,18 +4,40 @@ Es un grafo de LangGraph con tres pasos fijos. El modelo no decide si consulta e
 """
 
 # Librería estándar
+import re
 from typing import TypedDict
 
 # Librerías externas
+from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, StateGraph
+from pydantic import ValidationError
 
 # Módulos del proyecto
 from src.config.model_factory import create_default_llm
 from src.config.settings import Settings
 from src.prompts.system_prompts import POLICY_AGENT_SYSTEM_PROMPT, QUERY_REWRITE_SYSTEM_PROMPT
 from src.schemas.query import AssistantAnswer, PolicyAnswer, SearchPlan
+
+# Máximo de consultas al RAG cuando la pregunta es compuesta
+MAX_SEARCH_QUERIES = 2
+
+# Una pregunta es compuesta si tiene varios signos de pregunta o une otra con "y qué", "y cómo"
+COMPOUND_QUESTION_PATTERN = re.compile(
+    r"\by\s+(qué|que|cómo|como|cuál|cual|cuáles|cuándo|cuánto|dónde|quién|por qué)\b",
+    re.IGNORECASE,
+)
+
+
+# Detectar de forma determinista si la pregunta trae dos temas
+def is_compound_question(question: str) -> bool:
+    """No usa el modelo, así las preguntas simples no pagan una llamada extra."""
+    # Varias preguntas escritas con sus propios signos
+    if question.count("?") > 1:
+        return True
+    # Una segunda pregunta unida con "y" más una palabra interrogativa
+    return bool(COMPOUND_QUESTION_PATTERN.search(question))
 
 
 # Datos que viajan entre los pasos del grafo
@@ -55,19 +77,25 @@ def create_policy_agent(settings: Settings, rag_tool: BaseTool):
     # Modelo que devuelve la respuesta validada con Pydantic
     answer_model = model.with_structured_output(PolicyAnswer)
 
-    # Paso 1: conservar la pregunta y separarla solo si es compuesta
+    # Paso 1: usar la pregunta tal cual y separarla en máximo 2 solo si es compuesta
     def rewrite_question(state: PolicyState) -> dict:
-        # Pedir el plan de búsqueda al modelo
-        plan = query_planner.invoke(
-            [SystemMessage(QUERY_REWRITE_SYSTEM_PROMPT), HumanMessage(state["question"])]
-        )
-        # La pregunta original va siempre sin cambios
-        queries = [state["question"]]
-        # Agregar subconsultas solo si el modelo detectó varios temas
-        if plan and len(plan.queries) > 1:
-            queries += [query for query in plan.queries if query != state["question"]]
-        # Limitar a tres consultas en total
-        return {"search_queries": queries[:3]}
+        # Usar la pregunta original sin llamar al modelo si no parece compuesta
+        if not is_compound_question(state["question"]):
+            return {"search_queries": [state["question"]]}
+
+        # Pedir al modelo que separe los dos temas
+        try:
+            plan = query_planner.invoke(
+                [SystemMessage(QUERY_REWRITE_SYSTEM_PROMPT), HumanMessage(state["question"])]
+            )
+        # Usar la pregunta original si el modelo no devolvió un plan válido
+        except (OutputParserException, ValidationError):
+            return {"search_queries": [state["question"]]}
+        # Usar la pregunta original si el modelo no la separó
+        if plan is None or len(plan.queries) < 2:
+            return {"search_queries": [state["question"]]}
+        # Devolver las dos consultas separadas
+        return {"search_queries": plan.queries[:MAX_SEARCH_QUERIES]}
 
     # Paso 2: consultar el RAG siempre, sin dejarlo a decisión del modelo
     def retrieve_documents(state: PolicyState) -> dict:

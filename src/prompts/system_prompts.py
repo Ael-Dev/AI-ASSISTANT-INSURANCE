@@ -1,15 +1,14 @@
 """Prompts del sistema. Se gestionan aquí y nunca se mezclan con los fragmentos del RAG."""
 
-# Instrucciones para detectar preguntas compuestas. La pregunta original se busca siempre
+# Instrucciones para separar preguntas compuestas. Solo se usan si la pregunta lo es
 QUERY_REWRITE_SYSTEM_PROMPT = """\
 <role>
-Detectas si una pregunta sobre un manual de siniestros de autos tiene varios temas.
+Separas una pregunta compuesta sobre un manual de siniestros de autos en sus dos temas.
 </role>
 
 <rules>
-1. Si tiene un solo tema, devuelve la pregunta tal cual.
-2. Si tiene varios temas, sepárala en una consulta por tema usando las mismas palabras
-   del usuario, máximo 3.
+1. Devuelve exactamente dos consultas, una por tema.
+2. Usa las mismas palabras del usuario en cada una.
 3. No cambies términos, no agregues información y no respondas.
 </rules>"""
 
